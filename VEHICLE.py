@@ -31,10 +31,20 @@ class Vehicle:
         """更新时间到 t+1"""
         self.data[1] += 1
     
-    def get_location(self):
+    def if_in_city(self):
         """获取当前位置，城市内为 False"""
         return self.data[2] != 0
-    
+    def which_city(self):
+        """在哪个城市"""
+        if self.if_in_city() == False:
+            return self.data[3]
+        else:
+            return False
+    def whether_the_city(self,u):
+        if self.which_city == u :
+            return True
+        else:
+            return False
     def into_city(self):
         """进入城市"""
         self.data[2] = 0

@@ -1,4 +1,5 @@
 class City:
+    
     def __init__(self, city_id, neighbor, vehicle_available, charging_capacity, real_departure, virtual_departure):
         self.city_id = city_id
         self.neighbor = neighbor                            # 邻接城市的索引或 ID 列表

@@ -1,7 +1,8 @@
 import numpy as np
 
 class Order:
-    def __init__(self, order_id, passenger_count, departure, destination, start_time, end_time, virtual_departure):
+    def __init__(self, order_id, passenger_count, departure, destination, 
+                 start_time, end_time, virtual_departure, battery):
         # 使用 NumPy 数组存储属性
         self.data = np.array([
             order_id,             # ID
@@ -11,7 +12,8 @@ class Order:
             start_time,           # 起始时间
             end_time,             # 截止时间
             virtual_departure,    # 虚拟出发点
-            [0,0]                     # 是否匹配 (0 表示 False, 1 表示 True)
+            [0,0],                     # 是否匹配 (0 表示 False, 1 表示 True)
+            battery               # 需要的电量
         ], dtype=object)
 
     def get_id(self):
@@ -38,4 +40,6 @@ class Order:
         """被匹配"""
         self.data[7][0] = 1 
         self.data[7][1] = vehicle_id
-    
+
+    def battery_demand(self):
+        return self.data[8]

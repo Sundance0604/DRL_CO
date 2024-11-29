@@ -97,10 +97,10 @@ class city_graph():
         """
         for entry in self.dijkstra_results:
             if entry['source'] == source and entry['target'] == target:
-                return {'distance': entry['distance'], 'path': entry['path']}
+                return entry['distance'], entry['path']
             elif entry['source'] == target and entry['target'] == source:
                 # 反向路径，调整顺序
-                return {'distance': entry['distance'], 'path': list(reversed(entry['path']))}
+                return entry['distance'], list(reversed(entry['path']))
         return None
     
     def get_neighbors(self, city_id):
