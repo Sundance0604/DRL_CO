@@ -54,7 +54,7 @@ class Order:
         return self.data[3]    
     @property
     def time_window(self) -> Tuple[int, int]:
-        """返回起始与截止时间"""
+        """返回截止时间"""
         return self.data[4], self.data[5]
     
     @property
@@ -87,16 +87,6 @@ class Order:
         """检查是否匹配"""
         return self.data[7][0] == 1
 
-    @staticmethod
-    def compute_battery_efficiency(distance: float, efficiency: float) -> float:
-        """
-        静态方法，计算订单所需电量
-        :param distance: 距离
-        :param efficiency: 电耗效率 (单位: 每公里电量)
-        :return: 所需电量
-        """
-        return distance * efficiency
-    
     @classmethod
     def from_dict(cls, order_dict: dict):
         """

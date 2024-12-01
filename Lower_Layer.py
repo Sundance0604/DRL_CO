@@ -1,4 +1,3 @@
-from tokenize import String
 from typing import Dict
 from gurobipy import *
 from CITY_GRAPH import *
@@ -8,7 +7,7 @@ from VEHICLE import *
 from tool_func import *
 
 class Lower_Layer:
-    
+    """代码错了，约束越多越反动"""
     def __init__(self, num_vehicle:int, num_order:int, city_graph: CityGraph, 
                  city_node: Dict[int, 'City'], 
                  Vehicle:Dict[int, 'Vehicle'], Order: Dict[int, 'Order'], name, group):
@@ -75,19 +74,20 @@ class Lower_Layer:
         constrain_3_1 = []
         constrain_3_2 = []
         constrain_3_3 = []
+        constrain_3_4 = []
         
-        for city_id, city in self.city_node.items():
+        for city in self.city_node.values():
             # 获取每个城市的最低电池需求
-            battery_demand[city_id] = min(
+            least_battery_demand = min(
                 order.battery_demand for order in city.get_virtual_departure().values())
             for vehicle in city.available_vehicles.values():
-                v = vehicle.id
-                if vehicle.battery < battery_demand[city_id]:
-                        # 禁止订单匹配
-                    constrain_3_1.append(self.X_Order[vehicle.id] == 0)
+                
+                if vehicle.battery < least_battery_demand:
+                        # 禁止订单匹配,是列哦
+                    constrain_3_1.append(self.X_Order[:,vehicle.id] == 0)
                     # 车辆禁止执行出发操作
-                    constrain_3_2.append(self.X_Vehicle[v, 0] == 0)  
-                    self.low_battery.append(v)  # 标记电池不足的车辆
+                    constrain_3_2.append(self.X_Vehicle[vehicle.id, 0] == 0)  
+    
                 else:
                     # 车辆电量足够，但如果电量小于订单需求，禁止匹配
                     for order in city.get_virtual_departure().values():
@@ -100,6 +100,10 @@ class Lower_Layer:
                             _, to_furthest = self.city_graph.get_dijkstra_results(order.destination,furthest[-1]).values()
                             if route_combine(furthest, current, to_furthest) == False:
                                 constrain_3_1.append(self.X_Order[order.id, vehicle.id] == 0)
+                            #如果时间不足，同样不可匹配
+                            _, deadline = order.timewindow
+                            if time_consume(order) > deadline - vehicle.time:
+                                constrain_3_4.append(self.X_Order[order.id, vehicle.id] == 0)
             else:
                 # 对于不在当前城市的车辆，禁止匹配
                 for order in city.get_virtual_departure().values():
@@ -108,13 +112,14 @@ class Lower_Layer:
         self.model.addConstrs(constrain_3_1, name="constrain_3_1")
         self.model.addConstrs(constrain_3_2, name="constrain_3_2")
         self.model.addConstrs(constrain_3_3, name="constrain_3_3")
+        self.model.addConstrs(constrain_3_4, name="constrain_3_4")
 
     def constrain_4(self):
         """充电站有限的"""
         constrian_4 = []
         for city in self.city_node.values():
             # y^k_u之和不得大于容量
-            constrian_4.append(sum(self.X_Vehicle[vehicle.id, 1]<city.charging_capacity) 
+            constrian_4.append(sum(self.X_Vehicle[vehicle.id, 1]<=city.charging_capacity) 
                                for vehicle in city.available_vehicles.values())
         self.model.addConstrs(constrian_4, name="constrain_4")
 
@@ -124,6 +129,15 @@ class Lower_Layer:
                        for key,vehicle in self.Vehicle.items() 
                        if len(vehicle.get_orders()) > 0]
         self.model.addConstrs(constrain_5, name="constrain_5")
+    
+    def set_objective(self, cost_matrix, revenue_vector, penalty_vector):
+        # 好像gurobi不能进行矩阵计算
+        order_revenue = quicksum(self.X_Order[o, v] * revenue_vector[o] for o in range(self.num_orders) for v in range(self.num_vehicles))
+        vehicle_cost = quicksum(self.X_Vehicle[v, c] * cost_matrix[c][v] for v in range(self.num_vehicles) for c in range(4))
+        order_penalty = quicksum((1 - quicksum(self.X_Order[o, v] for v in range(self.num_vehicles))) * penalty_vector[o] for o in range(self.num_orders))
+
+        self.model.setObjective(order_revenue - vehicle_cost - order_penalty, GRB.MAXIMIZE)
+    
     
 
         

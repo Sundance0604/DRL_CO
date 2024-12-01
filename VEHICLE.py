@@ -53,6 +53,9 @@ class Vehicle:
     def battery(self):
         """获取电量"""
         return self.data[5]
+    @property
+    def time(self):
+        return self.data[1]
     @battery.setter
     def battery(self, value):
         if value < 0:
