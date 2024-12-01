@@ -5,7 +5,9 @@ from CITY_NODE import *
 from ORDER import *
 from VEHICLE import *
 from tool_func import *
+import SETTING
 
+SET = SETTING()
 class Lower_Layer:
     """代码错了，约束越多越反动"""
     def __init__(self, num_vehicle:int, num_order:int, city_graph: CityGraph, 
@@ -75,6 +77,7 @@ class Lower_Layer:
         constrain_3_2 = []
         constrain_3_3 = []
         constrain_3_4 = []
+        constrain_3_5 = []
         
         for city in self.city_node.values():
             # 获取每个城市的最低电池需求
@@ -104,6 +107,10 @@ class Lower_Layer:
                             _, deadline = order.timewindow
                             if time_consume(order) > deadline - vehicle.time:
                                 constrain_3_4.append(self.X_Order[order.id, vehicle.id] == 0)
+                            # 如果接单导致载客过多，同样不可匹配
+                            if order.passenger_count + vehicle.get_capacity > SET.capacity:
+                                constrain_3_5.append(self.X_Order[order.id, vehicle.id] == 0)
+
             else:
                 # 对于不在当前城市的车辆，禁止匹配
                 for order in city.get_virtual_departure().values():
@@ -113,6 +120,7 @@ class Lower_Layer:
         self.model.addConstrs(constrain_3_2, name="constrain_3_2")
         self.model.addConstrs(constrain_3_3, name="constrain_3_3")
         self.model.addConstrs(constrain_3_4, name="constrain_3_4")
+        self.model.addConstrs(constrain_3_4, name="constrain_3_5")
 
     def constrain_4(self):
         """充电站有限的"""
@@ -132,6 +140,10 @@ class Lower_Layer:
     
     def set_objective(self, cost_matrix, revenue_vector, penalty_vector):
         # 好像gurobi不能进行矩阵计算
+        """目前无法实现“动一动”功能。
+            办法一：限制连续dispatching次数，可以在vehicle中增加记录功能
+            一种办法：约束函数仅对每个城市构建，而非全局
+        """
         order_revenue = quicksum(self.X_Order[o, v] * revenue_vector[o] for o in range(self.num_orders) for v in range(self.num_vehicles))
         vehicle_cost = quicksum(self.X_Vehicle[v, c] * cost_matrix[c][v] for v in range(self.num_vehicles) for c in range(4))
         order_penalty = quicksum((1 - quicksum(self.X_Order[o, v] for v in range(self.num_vehicles))) * penalty_vector[o] for o in range(self.num_orders))
