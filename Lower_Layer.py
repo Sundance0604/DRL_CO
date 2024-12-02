@@ -7,7 +7,6 @@ from VEHICLE import *
 from tool_func import *
 import SETTING
 
-SET = SETTING()
 class Lower_Layer:
     """代码错了，约束越多越反动"""
     def __init__(self, num_vehicle:int, num_order:int, city_graph: CityGraph, 
@@ -72,7 +71,6 @@ class Lower_Layer:
     def constrain_3(self):
         """电池约束：防止电池不足时的错误匹配"""
         """足电，足车，客之信矣"""
-        battery_demand = {}
         constrain_3_1 = []
         constrain_3_2 = []
         constrain_3_3 = []

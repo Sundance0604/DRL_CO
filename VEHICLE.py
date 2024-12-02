@@ -15,20 +15,22 @@ class Decision(Enum):
 
 # 定义车辆类
 class Vehicle:
-    __slots__ = ['data', 'orders']  # 限制属性，节省内存
-    
     def __init__(self, vehicle_id: int, time: int, into_city: int, 
                  intercity: int, decision: Decision, battery: float, 
                  orders: Dict[int, 'Order'] = None):
-
-        self.data = np.array([vehicle_id, time, into_city, intercity, decision.value, battery], dtype=object)
+        self.vehicle_id = vehicle_id
+        self.time = time
+        self.into_city = into_city
+        self.intercity = intercity
+        self.decision = decision
+        self.battery = battery
         self.orders = orders if orders else {}  # 初始化订单字典
-    
+
     def __repr__(self):
-        return (f"Vehicle(id={self.data[0]}, time={self.data[1]}, "
-                f"into_city={self.data[2]}, intercity={self.data[3]}, "
-                f"state={self.data[4]}, battery={self.data[5]})")
-    
+        return (f"Vehicle(id={self.vehicle_id}, time={self.time}, "
+                f"into_city={self.into_city}, intercity={self.intercity}, "
+                f"decision={self.decision.name}, battery={self.battery})")
+
     @classmethod
     def from_dict(cls, vehicle_dict):
         """从字典创建车辆实例"""
@@ -41,89 +43,71 @@ class Vehicle:
             battery=vehicle_dict["battery"],
             orders=vehicle_dict.get("orders", {})
         )
-    
+
     @staticmethod
     def compute_battery_cost(decision: Decision, cost_battery: Dict[int, float]):
         """计算电量消耗"""
         return cost_battery.get(decision.value, 0)
-    @property
-    def id(self)->int:
-        return self.data[0]
-    @property
-    def battery(self):
-        """获取电量"""
-        return self.data[5]
-    @property
-    def time(self):
-        return self.data[1]
-    @battery.setter
-    def battery(self, value):
-        if value < 0:
-            raise ValueError("Battery level cannot be negative!")
-        self.data[5] = value
-    
+
     def update_time(self):
         """更新时间到 t+1"""
-        self.data[1] += 1
+        self.time += 1
 
     def if_in_city(self):
-        """获取当前位置，城市内为 False"""
-        return self.data[2] != 0
-    
+        """判断是否在城市内"""
+        return self.into_city == 0
+
     def which_city(self):
         """返回当前所在城市编号"""
-        return self.data[3] if not self.if_in_city() else None
-    
-    def into_city(self):
-        """进入城市"""
-        self.data[2] = 0
+        return self.intercity if self.if_in_city() else False
 
-    def intercity(self, city_id: int):
+    def move_into_city(self):
+        """进入城市"""
+        self.into_city = 0
+
+    def move_to_city(self, city_id: int):
         """离开当前城市，前往指定城市"""
-        self.data[2] = self.data[3]
-        self.data[3] = city_id
-    
+        self.into_city = self.intercity
+        self.intercity = city_id
+
     def update_state(self, decision: Decision):
         """更新车辆决策"""
-        self.data[4] = decision.value
-    
+        self.decision = decision
+
     def get_state(self):
         """获取当前决策"""
-        return Decision(self.data[4])
-    
+        return self.decision
+
     def update_battery(self, cost_battery: Dict[int, float]):
         """更新电量"""
-        self.battery -= self.compute_battery_cost(Decision(self.data[4]), cost_battery)
-    
+        self.battery -= self.compute_battery_cost(self.decision, cost_battery)
+        if self.battery < 0:
+            raise ValueError("Battery level cannot be negative!")
+
     def add_order(self, order):
         """添加订单"""
-        if order.get_id() in self.orders:
-            logging.warning(f"Order {order.get_id()} already exists!")
-        else:
-            self.orders[order.get_id()] = order
-            logging.info(f"Added order {order.get_id()}")
-    
+        if order.get_id() not in self.orders:
+            self.orders[order.id] = order
+           
+
     def delete_order(self, order_id: int):
         """删除订单"""
         if order_id in self.orders:
             del self.orders[order_id]
-            logging.info(f"Deleted order {order_id}")
-        else:
-            logging.warning(f"Order {order_id} does not exist!")
-    
+            
     def add_orders(self, *orders):
         """批量添加订单"""
         for order in orders:
             self.add_order(order)
-    
+
     def delete_orders(self, *order_ids):
         """批量删除订单"""
         for order_id in order_ids:
             self.delete_order(order_id)
-    
+
     def get_capacity(self):
         """获取当前载客总人数"""
-        return sum(order.get_passenger() for order in self.orders.values())
+        return sum(order.passengers for order in self.orders.values())
 
     def get_orders(self):
         """获取所有订单对象"""

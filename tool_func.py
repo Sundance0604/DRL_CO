@@ -2,8 +2,9 @@ from ORDER import *
 from CITY_GRAPH import *
 from VEHICLE import *
 import numpy as np
+import SETTING
 
-
+SET = SETTING()
 def route_combine(lst, list1, list2):
     # 遍历所有可能的分割位置
     for i in range(1, len(lst)):  # i 是分割点
@@ -15,9 +16,9 @@ def route_combine(lst, list1, list2):
             return True
     return False
 
-def time_consume(order:Order):
+def time_consume(order:Order,G:CityGraph):
     pass
-def time_cost(u:int , v:int):
+def time_cost(u:int , v:int,G:CityGraph):
     pass
 
 def vehicle_generator(num_vehicle:int, num_city:int):
@@ -52,4 +53,10 @@ def order_generator(num_order:int, time: int, num_city:int,CAPACITY,TIME):
         order = Order(order_id, passenger_count, departure, destination, start_time, end_time, virtual_departure, battery)
         Orders[order_id] = order
     return Orders
+
+def city_node_generator(G:CityGraph):
+    pass
+
+def update(X:Dict):
+    pass
 
