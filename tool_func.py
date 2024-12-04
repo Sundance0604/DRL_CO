@@ -4,7 +4,7 @@ from VEHICLE import *
 import numpy as np
 import SETTING
 
-SET = SETTING()
+
 def route_combine(lst, list1, list2):
     # 遍历所有可能的分割位置
     for i in range(1, len(lst)):  # i 是分割点
@@ -46,11 +46,12 @@ def order_generator(num_order:int, time: int, num_city:int,CAPACITY,TIME):
         while destination == departure:           # 目的地
             destination = random.randint(0, num_city)
         start_time = time                   # 起始时间
-        end_time = start_time + random.randint(0, TIME) + time_consume(departure,destination) # 截止时间
+        end_time = start_time #+ random.randint(0, TIME)  #+ time_consume(departure,destination) # 截止时间
         virtual_departure = departure    # 虚拟出发地
         battery =random.uniform(0, 100)               # 需要的电量
         # 创建 Vehicle 对象
         order = Order(order_id, passenger_count, departure, destination, start_time, end_time, virtual_departure, battery)
+        
         Orders[order_id] = order
     return Orders
 
