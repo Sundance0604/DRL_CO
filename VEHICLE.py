@@ -15,10 +15,10 @@ class Decision(Enum):
 
 # 定义车辆类
 class Vehicle:
-    def __init__(self, vehicle_id: int, time: int, into_city: int, 
+    def __init__(self, id: int, time: int, into_city: int, 
                  intercity: int, decision: Decision, battery: float, 
                  orders: Dict[int, 'Order'] = None):
-        self.vehicle_id = vehicle_id
+        self.id = id
         self.time = time
         self.into_city = into_city
         self.intercity = intercity
@@ -27,7 +27,7 @@ class Vehicle:
         self.orders = orders if orders else {}  # 初始化订单字典
 
     def __repr__(self):
-        return (f"Vehicle(id={self.vehicle_id}, time={self.time}, "
+        return (f"Vehicle(id={self.id}, time={self.time}, "
                 f"into_city={self.into_city}, intercity={self.intercity}, "
                 f"decision={self.decision.name}, battery={self.battery})")
 
@@ -35,7 +35,7 @@ class Vehicle:
     def from_dict(cls, vehicle_dict):
         """从字典创建车辆实例"""
         return cls(
-            vehicle_id=vehicle_dict["vehicle_id"],
+            id=vehicle_dict["id"],
             time=vehicle_dict["time"],
             into_city=vehicle_dict["into_city"],
             intercity=vehicle_dict["intercity"],

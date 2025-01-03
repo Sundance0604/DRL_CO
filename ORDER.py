@@ -5,9 +5,9 @@ from typing import Tuple
 logging.basicConfig(level=logging.INFO)
 
 class Order:
-    def __init__(self, order_id: int, passenger: int, departure: int, destination: int, 
+    def __init__(self, id: int, passenger: int, departure: int, destination: int, 
                  start_time: int, end_time: int, virtual_departure: int, battery: float):
-        self.order_id = order_id             # 订单 ID
+        self.id = id             # 订单 ID
         self.passenger = passenger  # 乘客数
         self.departure = departure          # 出发地
         self.destination = destination      # 目的地
@@ -21,40 +21,30 @@ class Order:
     def __repr__(self):
         """打印订单的简洁信息"""
         matched_status = "Matched" if self.matched else "Unmatched"
-        return (f"Order(id={self.order_id}, passengers={self.passenger_count}, "
+        return (f"Order(id={self.id}, passengers={self.passenger}, "
                 f"departure={self.departure}, destination={self.destination}, "
                 f"battery={self.battery}, status={matched_status})")
 
     # --- 属性访问方法 ---
-    @property
-    def id(self) -> int:
-        return self.order_id
     
-    @property
-    def passengers(self) -> int:
-        return self.passenger
     
-    @property
+    
     def route(self) -> Tuple[int, int]:
         """返回真实出发地与目的地"""
         return self.departure, self.destination
     
-    @property
+
     def virtual_route(self) -> Tuple[int, int]:
         """返回虚拟出发地与目的地"""
         return self.virtual_departure, self.destination
     
-    @property
+
     def time_window(self) -> Tuple[int, int]:
         """返回时间窗口"""
         return self.start_time, self.end_time
     
-    @property
-    def battery_demand(self) -> float:
-        """返回电量需求"""
-        return self.battery
 
-    @property
+
     def matched_vehicle(self) -> int:
         """返回匹配的车辆 ID，如果未匹配则返回 None"""
         return self.matched_vehicle_id if self.matched else None
@@ -87,8 +77,8 @@ class Order:
         从字典初始化订单
         """
         return cls(
-            order_id=order_dict['order_id'],
-            passenger_count=order_dict['passenger_count'],
+            order_id=order_dict['id'],
+            passenger=order_dict['passenger'],
             departure=order_dict['departure'],
             destination=order_dict['destination'],
             start_time=order_dict['start_time'],

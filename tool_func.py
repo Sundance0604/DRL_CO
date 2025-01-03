@@ -3,8 +3,9 @@ from CITY_GRAPH import *
 from VEHICLE import *
 import numpy as np
 import SETTING
+from CITY_NODE import * 
 
-
+per_distance_battery = 10
 def route_combine(lst, list1, list2):
     # 遍历所有可能的分割位置
     for i in range(1, len(lst)):  # i 是分割点
@@ -28,36 +29,70 @@ def vehicle_generator(num_vehicle:int, num_city:int):
         into_city = 0        #默认城市内
         intercity = random.randint(0, num_city)    # 当前所在城市编号 
         decision = Decision.IDLE  # 当前决策
-        battery = random.uniform(0, 100)          # 电池剩余电量（百分比）
+        battery = random.uniform(0, 100)*200         # 电池剩余电量（百分比）
         orders = {}  # 无订单
 
         # 创建 Vehicle 对象
         vehicle = Vehicle(vehicle_id, 0, into_city, intercity, decision, battery, orders)
-        Vehicles[vehicle] = vehicle
+        Vehicles[vehicle.id] = vehicle
     return Vehicles
 
-def order_generator(num_order:int, time: int, num_city:int,CAPACITY,TIME):
+def order_generator(num_order:int, time: int, num_city:int,CAPACITY,TIME,G:CityGraph):
     Orders = {}
+    revenue_vector=[0]*num_order
+    penalty_vector=[0]*num_order
     for i in range(0,num_order):
-        order_id = i             # 订单 ID
-        passenger_count = random.randint(1,CAPACITY)     # 乘客数
+        id = i             # 订单 ID
+        passenger = random.randint(1,CAPACITY)     # 乘客数
         departure = random.randint(0, num_city)           # 出发地
         destination = random.randint(0, num_city)
         while destination == departure:           # 目的地
             destination = random.randint(0, num_city)
         start_time = time                   # 起始时间
-        end_time = start_time #+ random.randint(0, TIME)  #+ time_consume(departure,destination) # 截止时间
-        virtual_departure = departure    # 虚拟出发地
-        battery =random.uniform(0, 100)               # 需要的电量
-        # 创建 Vehicle 对象
-        order = Order(order_id, passenger_count, departure, destination, start_time, end_time, virtual_departure, battery)
+        end_time = start_time+1000 #+ random.randint(0, TIME)  #+ time_consume(departure,destination) # 截止时间
+        virtual_departure = departure    # 预设为虚拟出发地
+        distance,_ =G.get_intercity_path(departure, destination)
+        battery =random.uniform(0, 10)+distance*per_distance_battery             # 需要的电量
+        revenue_vector[i] = distance * 1000 # 随便编
+        penalty_vector[i] = passenger * 5 # 随便编
+        # 创建 Order 对象
+        order = Order(id, passenger, departure, destination, start_time, end_time, virtual_departure, battery)
         
-        Orders[order_id] = order
-    return Orders
+        Orders[id] = order
+    return Orders , revenue_vector, penalty_vector
 
-def city_node_generator(G:CityGraph):
-    pass
+def city_node_generator(G:CityGraph,
+                        order_virtual:Dict,
+                        Vehicles:Dict,
+                        order_unmatched:Dict):
+    Cities = {}
+    for i in range(0,G.num_nodes):
+        city_id = i
+        neighbor = G.get_neighbors(city_id)
+        vehicle_available = {}
+        real_departure = {}
+        virtual_departure = {}
 
+        
+        vehicle_available = {}
+        # 根据现有的车队序列和订单序列为每个城市添加信息
+        for vehicle in Vehicles.values():
+            if vehicle.which_city() == city_id:
+                vehicle_available[vehicle.id]=vehicle
+        for order in order_virtual.values():
+            if order.virtual_departure == city_id:
+                virtual_departure[order.id]=order
+        for order in order_unmatched.values():
+            if order.departure == city_id:
+                real_departure[order.id]=order
+        #生成城市
+        city = City(city_id, neighbor, 
+                 vehicle_available,
+                 10, 
+                 real_departure, 
+                 virtual_departure)
+        Cities[city_id] = city
+    return Cities
 def update(X:Dict):
     pass
 

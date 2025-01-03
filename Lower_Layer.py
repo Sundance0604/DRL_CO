@@ -46,95 +46,136 @@ class Lower_Layer:
     def constrain_1(self):
         """先划成分，再扣帽子（指0和1）"""
         """对于在城市中的，能批添加则批添加"""
-        constraints_1_1 = [
-            (sum(self.X_Vehicle[v, c] for c in range(3)) == 1) for v in range(self.group[0])
-        ]
-        constraints_1_2 = [
-            (self.X_Vehicle[v, 3] == 0) for v in range(self.group[0])
-        ]
+        self.model.addConstrs(
+    (sum(self.X_Vehicle[v, c] for c in range(3)) == 1 for v in self.group[0]),
+    name="constraints_1_1"
+        )
 
-        self.model.addConstrs(constraints_1_1, name="constraints_1_1")
-        self.model.addConstrs(constraints_1_2, name="constraints_1_2")
+        # constraints_1_2
+        self.model.addConstrs(
+            (self.X_Vehicle[v, 3] == 0 for v in self.group[0]),
+            name="constraints_1_2"
+        )
 
     def constrain_2(self):
         """对于在城市间的"""
-        constraints_2_1 = [
-            (sum(self.X_Vehicle[v, c] for c in range(3)) == 0) for v in range(self.group[0])
-        ]
-        constraints_2_2 = [
-            (self.X_Vehicle[v, 3] == 1) for v in range(self.group[0])
-        ]
+        self.model.addConstrs(
+            (sum(self.X_Vehicle[v, c] for c in range(3)) == 0 for v in self.group[1]),
+            name="constraints_2_1"
+        )
 
-        self.model.addConstrs(constraints_2_1, name="constraints_2_1")
-        self.model.addConstrs(constraints_2_2, name="constraints_2_2")
+        self.model.addConstrs(
+            (self.X_Vehicle[v, 3] == 1 for v in self.group[1]),
+            name="constraints_2_2"
+        )
+
 
     def constrain_3(self):
         """电池约束：防止电池不足时的错误匹配"""
         """足电，足车，客之信矣"""
-        constrain_3_1 = []
-        constrain_3_2 = []
-        constrain_3_3 = []
-        constrain_3_4 = []
-        constrain_3_5 = []
-        
+
+        # 只能被一辆车匹配
+        self.model.addConstrs(
+            (sum(self.X_Order[order.id, vehicle_id] for vehicle_id in self.group[0]) == 1 
+            for order in self.Order.values()),
+            name="constrain_3_0"
+            
+        )
+
+
         for city in self.city_node.values():
+            if not city.available_vehicles:
+                # print(city.id)
+                continue
+            if not city.virtual_departure:
+                print(city.id)
+                continue
             # 获取每个城市的最低电池需求
             least_battery_demand = min(
-                order.battery_demand for order in city.get_virtual_departure().values())
+                order.battery for order in city.virtual_departure.values()
+            )
+            print(least_battery_demand)
+
             for vehicle in city.available_vehicles.values():
-                
+                # 禁止电量不足的车辆匹配订单
                 if vehicle.battery < least_battery_demand:
-                        # 禁止订单匹配,是列哦
-                    constrain_3_1.append(self.X_Order[:,vehicle.id] == 0)
-                    # 车辆禁止执行出发操作
-                    constrain_3_2.append(self.X_Vehicle[vehicle.id, 0] == 0)  
-    
+                    print(vehicle.id)
+                    self.model.addConstrs(
+                        (self.X_Order[order.id, vehicle.id] == 0 for order in city.virtual_departure.values()),
+                        name=f"constrain_3_1_vehicle_{vehicle.id}"
+                    )
+                    self.model.addConstr(
+                        (self.X_Vehicle[vehicle.id, 0] == 0),
+                        name=f"constrain_3_2_vehicle_{vehicle.id}"
+                    )
                 else:
-                    # 车辆电量足够，但如果电量小于订单需求，禁止匹配
-                    for order in city.get_virtual_departure().values():
-                        if vehicle.battery <= order.battery_demand:
-                            constrain_3_1.append(self.X_Order[order.id, vehicle.id] == 0)
-                        # 对于电量足够匹配的订单，不可违背路径：
+                    for order in city.virtual_departure.values():
+                        # 电量不足时禁止匹配
+                        if vehicle.battery <= order.battery:
+                            print(vehicle.id)
+                            self.model.addConstr(
+                                (self.X_Order[order.id, vehicle.id] == 0),
+                                name=f"constrain_3_1_order_{order.id}_vehicle_{vehicle.id}"
+                            )
+                        elif not vehicle.get_orders():
+                            print(vehicle.id)
+                            continue
                         else:
+                            # 路径约束：车辆必须遵守路径规则
                             furthest = self.city_graph.passby_most(vehicle.get_orders())
                             _, current = self.city_graph.get_dijkstra_results(order.virtual_departure).values()
-                            _, to_furthest = self.city_graph.get_dijkstra_results(order.destination,furthest[-1]).values()
-                            if route_combine(furthest, current, to_furthest) == False:
-                                constrain_3_1.append(self.X_Order[order.id, vehicle.id] == 0)
-                            #如果时间不足，同样不可匹配
+                            _, to_furthest = self.city_graph.get_dijkstra_results(order.destination, furthest[-1]).values()
+
+                            if not route_combine(furthest, current, to_furthest):
+                                self.model.addConstr(
+                                    (self.X_Order[order.id, vehicle.id] == 0),
+                                    name=f"constrain_3_1_invalid_route_order_{order.id}_vehicle_{vehicle.id}"
+                                )
+                            
+                        # 时间窗口约束
                             _, deadline = order.timewindow
                             if time_consume(order) > deadline - vehicle.time:
-                                constrain_3_4.append(self.X_Order[order.id, vehicle.id] == 0)
-                            # 如果接单导致载客过多，同样不可匹配
-                            if order.passenger_count + vehicle.get_capacity > SET.capacity:
-                                constrain_3_5.append(self.X_Order[order.id, vehicle.id] == 0)
+                                self.model.addConstr(
+                                    (self.X_Order[order.id, vehicle.id] == 0),
+                                    name=f"constrain_3_4_order_{order.id}_vehicle_{vehicle.id}"
+                                )
+                            
+                            # 容量约束
+                            if order.passenger + vehicle.get_capacity > 7:#先随便改成7
+                                self.model.addConstr(
+                                    (self.X_Order[order.id, vehicle.id] == 0),
+                                    name=f"constrain_3_5_order_{order.id}_vehicle_{vehicle.id}"
+                                )
 
-            else:
-                # 对于不在当前城市的车辆，禁止匹配
-                for order in city.get_virtual_departure().values():
-                    constrain_3_3.append(self.X_Order[order.id, vehicle.id] == 0)
-        
-        self.model.addConstrs(constrain_3_1, name="constrain_3_1")
-        self.model.addConstrs(constrain_3_2, name="constrain_3_2")
-        self.model.addConstrs(constrain_3_3, name="constrain_3_3")
-        self.model.addConstrs(constrain_3_4, name="constrain_3_4")
-        self.model.addConstrs(constrain_3_4, name="constrain_3_5")
-
+        # 禁止不在当前城市的车辆匹配
+        for vehicle in self.Vehicle.values():
+            for order in self.Order.values():
+                
+                if vehicle.which_city() != order.virtual_departure:
+                    self.model.addConstr(
+                        (self.X_Order[order.id, vehicle.id] == 0),
+                        name=f"constrain_3_3_order_{order.id}_vehicle_{vehicle.id}"
+                    )
     def constrain_4(self):
         """充电站有限的"""
-        constrian_4 = []
         for city in self.city_node.values():
-            # y^k_u之和不得大于容量
-            constrian_4.append(sum(self.X_Vehicle[vehicle.id, 1]<=city.charging_capacity) 
-                               for vehicle in city.available_vehicles.values())
-        self.model.addConstrs(constrian_4, name="constrain_4")
-
+            # 计算每个城市充电站的充电需求和约束
+            charging_demand = 0
+            for vehicle in city.available_vehicles.values():
+                charging_demand += self.X_Vehicle[vehicle.id, 1]
+            
+            # 添加约束：充电需求不得超过城市的充电站容量
+            self.model.addConstr(charging_demand <= city.charging_capacity,
+                                 name=f"constrain_4_{city.id}")   
     def constrain_5(self):
-        """有单不得充电、闲置，只能dispatching，不需要预传值"""
-        constrain_5 = [ self.X_Vehicle[key, 1] == 1 
-                       for key,vehicle in self.Vehicle.items() 
-                       if len(vehicle.get_orders()) > 0]
-        self.model.addConstrs(constrain_5, name="constrain_5")
+        """约束：至少有一个订单的车辆，其充电状态为1"""
+       
+        for vehicle in self.Vehicle.values():
+            # 如果车辆有订单
+            if len(vehicle.get_orders()) > 0:
+                # 为车辆添加约束：其充电状态为0
+                self.model.addConstr(self.X_Vehicle[vehicle.id, 1] == 0,
+                                     name=f"constrian_5_{vehicle.id}")
     
     def set_objective(self, cost_matrix, revenue_vector, penalty_vector):
         # 好像gurobi不能进行矩阵计算
@@ -142,9 +183,9 @@ class Lower_Layer:
             办法一：限制连续dispatching次数，可以在vehicle中增加记录功能
             一种办法：约束函数仅对每个城市构建，而非全局
         """
-        order_revenue = quicksum(self.X_Order[o, v] * revenue_vector[o] for o in range(self.num_orders) for v in range(self.num_vehicles))
-        vehicle_cost = quicksum(self.X_Vehicle[v, c] * cost_matrix[c][v] for v in range(self.num_vehicles) for c in range(4))
-        order_penalty = quicksum((1 - quicksum(self.X_Order[o, v] for v in range(self.num_vehicles))) * penalty_vector[o] for o in range(self.num_orders))
+        order_revenue = quicksum(self.X_Order[o, v] * revenue_vector[o] for o in range(self.num_order) for v in range(self.num_vehicle))
+        vehicle_cost = quicksum(self.X_Vehicle[v, c] * cost_matrix[v][c] for v in range(self.num_vehicle) for c in range(0,4))
+        order_penalty = quicksum((1 - quicksum(self.X_Order[o, v] for v in range(self.num_vehicle))) * penalty_vector[o] for o in range(self.num_order))
 
         self.model.setObjective(order_revenue - vehicle_cost - order_penalty, GRB.MAXIMIZE)
     

@@ -28,8 +28,9 @@ class City:
         return (f"City(id={self.city_id}, "
                 f"neighbors={self.neighbor}, "
                 f"available_vehicles={len(self.vehicle_available)}, "
-                f"charging_capacity={self.charging_capacity})")
-
+                f"charging_capacity={self.charging_capacity}, "
+                f"real_departure={len(self.real_departure)}, "
+                f"virtual_departure={len(self.virtual_departure)})")
     # --- 属性访问方法 ---
     @property
     def id(self) -> int:

@@ -124,7 +124,9 @@ class CityGraph:
         """输出一组订单中经过城市数目最多的"""
         path_nodes = []
         for order in orders:
-            _,path_node = self.get_intercity_path(order.virtual_route).values()
+            print(order)
+            _,path_node = self.get_intercity_path(order.virtual_route)
+            print(path_node)
             path_nodes.append(len(path_node))
     
         return orders.index(max(path_nodes))
