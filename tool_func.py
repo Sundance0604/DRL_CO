@@ -17,8 +17,8 @@ def route_combine(lst, list1, list2):
             return True
     return False
 
-def time_consume(order:Order,G:CityGraph):
-    pass
+def time_consume(order:Order,speed=1000):
+    return order.distance/speed
 def time_cost(u:int , v:int,G:CityGraph):
     pass
 
@@ -56,7 +56,7 @@ def order_generator(num_order:int, time: int, num_city:int,CAPACITY,TIME,G:CityG
         revenue_vector[i] = distance * 1000 # 随便编
         penalty_vector[i] = passenger * 5 # 随便编
         # 创建 Order 对象
-        order = Order(id, passenger, departure, destination, start_time, end_time, virtual_departure, battery)
+        order = Order(id, passenger, departure, destination, start_time, end_time, virtual_departure, battery,distance)
         
         Orders[id] = order
     return Orders , revenue_vector, penalty_vector
