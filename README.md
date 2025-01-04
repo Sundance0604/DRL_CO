@@ -9,5 +9,7 @@
 **12.03**
 大致完善，部分函数未完成<br>
 **01.03**
-infeasible
+infeasible<br>
+**01.04**
+solution found<br>
 
