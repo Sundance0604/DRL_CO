@@ -106,5 +106,7 @@ class City:
         """获取虚拟出发点订单数量"""
         return len(self.virtual_departure)
     
+    def get_order_list(self):
+        return list(self.virtual_departure.values())    
     
 

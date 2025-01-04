@@ -23,6 +23,7 @@ class Order:
         matched_status = "Matched" if self.matched else "Unmatched"
         return (f"Order(id={self.id}, passengers={self.passenger}, "
                 f"departure={self.departure}, destination={self.destination}, "
+                f"matched_vehicle_id={self.matched_vehicle_id},"
                 f"battery={self.battery}, status={matched_status})")
 
     # --- 属性访问方法 ---
@@ -59,7 +60,7 @@ class Order:
         """匹配车辆"""
         self.matched = True
         self.matched_vehicle_id = vehicle_id
-        logging.info(f"Order {self.id} matched to Vehicle {vehicle_id}")
+        #logging.info(f"Order {self.id} matched to Vehicle {vehicle_id}")
 
     def unmatch_vehicle(self):
         """取消匹配"""

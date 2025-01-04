@@ -23,13 +23,25 @@ class CityGraph:
         self._calculate_shortest_paths()
 
     def _generate_graph(self):
-        """生成随机图"""
+        """生成无孤立点的随机图（连通图）"""
         self.G.add_nodes_from(range(self.num_nodes))
+
+        # 首先生成一个随机生成树，保证连通性
+        nodes = list(range(self.num_nodes))
+        random.shuffle(nodes)
+        for i in range(1, len(nodes)):
+            u = nodes[i - 1]
+            v = nodes[i]
+            weight = random.randint(*self.weight_range)
+            self.G.add_edge(u, v, weight=weight)
+
+        # 添加额外的随机边
         for u in range(self.num_nodes):
             for v in range(self.num_nodes):
-                if u != v and random.random() < self.edge_prob:
-                    weight = random.randint(*self.weight_range)  # 权重随机生成
+                if u != v and random.random() < self.edge_prob and not self.G.has_edge(u, v):
+                    weight = random.randint(*self.weight_range)
                     self.G.add_edge(u, v, weight=weight)
+
 
     def get_graph(self):
         """返回图对象"""
@@ -122,11 +134,13 @@ class CityGraph:
 
     def passby_most(self, orders:list[Order]):
         """输出一组订单中经过城市数目最多的"""
-        path_nodes = []
+        i = 0
         for order in orders:
-            print(order)
-            _,path_node = self.get_intercity_path(order.virtual_route)
-            print(path_node)
-            path_nodes.append(len(path_node))
-    
-        return orders.index(max(path_nodes))
+            _,path_node = self.get_intercity_path(*order.virtual_route())
+            if i == 0:
+                max_node = path_node
+            if i> 0 and len(path_node) > max_node:
+                max_node = path_node
+                
+            i+=1
+        return path_node

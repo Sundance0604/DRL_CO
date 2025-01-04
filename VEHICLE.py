@@ -8,28 +8,27 @@ from ORDER import *
 logging.basicConfig(level=logging.INFO)
 
 # 定义车辆决策枚举
-class Decision(Enum):
-    DISPATCHING = 0
-    CHARGING = 1
-    IDLE = 2
+
 
 # 定义车辆类
 class Vehicle:
     def __init__(self, id: int, time: int, into_city: int, 
-                 intercity: int, decision: Decision, battery: float, 
+                 intercity: int, decision: int, battery: float, 
                  orders: Dict[int, 'Order'] = None):
         self.id = id
         self.time = time
         self.into_city = into_city
         self.intercity = intercity
         self.decision = decision
+        self.last_decison = decision
         self.battery = battery
+        self.time_into_city = time
         self.orders = orders if orders else {}  # 初始化订单字典
 
     def __repr__(self):
         return (f"Vehicle(id={self.id}, time={self.time}, "
                 f"into_city={self.into_city}, intercity={self.intercity}, "
-                f"decision={self.decision.name}, battery={self.battery})")
+                f"decision={self.decision}, battery={self.battery})")
 
     @classmethod
     def from_dict(cls, vehicle_dict):
@@ -39,15 +38,15 @@ class Vehicle:
             time=vehicle_dict["time"],
             into_city=vehicle_dict["into_city"],
             intercity=vehicle_dict["intercity"],
-            decision=Decision(vehicle_dict["decision"]),
+            decision=vehicle_dict["decision"],
             battery=vehicle_dict["battery"],
             orders=vehicle_dict.get("orders", {})
         )
 
     @staticmethod
-    def compute_battery_cost(decision: Decision, cost_battery: Dict[int, float]):
+    def compute_battery_cost(decision:int, cost_battery: Dict[int, float]):
         """计算电量消耗"""
-        return cost_battery.get(decision.value, 0)
+        return cost_battery.get(decision, 0)
 
     def update_time(self):
         """更新时间到 t+1"""
@@ -69,9 +68,11 @@ class Vehicle:
         """离开当前城市，前往指定城市"""
         self.into_city = self.intercity
         self.intercity = city_id
+        self.time_into_city = self.time
 
-    def update_state(self, decision: Decision):
+    def update_state(self, decision: int):
         """更新车辆决策"""
+        self.last_decison = self.decision
         self.decision = decision
 
     def get_state(self):
@@ -86,7 +87,7 @@ class Vehicle:
 
     def add_order(self, order):
         """添加订单"""
-        if order.get_id() not in self.orders:
+        if order.id not in self.orders:
             self.orders[order.id] = order
            
 
