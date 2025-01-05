@@ -39,9 +39,6 @@ def vehicle_generator(num_vehicle:int, num_city:int):
 
 def order_generator(num_order:int, time: int, num_city:int,CAPACITY,G:CityGraph):
     Orders = {}
-    revenue_vector=[0]*num_order
-    penalty_vector=[0]*num_order
-    G.plot_graph()
     for i in range(0,num_order):
         id = i + time*num_order          # 订单 ID
         passenger = random.randint(1,CAPACITY)     # 乘客数
@@ -57,13 +54,14 @@ def order_generator(num_order:int, time: int, num_city:int,CAPACITY,G:CityGraph)
         except:
             print(departure,destination)
         battery =random.uniform(0, 10)+distance*per_distance_battery             # 需要的电量
-        revenue_vector[i] = distance * 100 + passenger * 50 # 随便编
-        penalty_vector[i] = passenger * 5 # 随便编
+        revenue = distance * 100 + passenger * 50 # 随便编
+        penalty = passenger * 5 # 随便编
         # 创建 Order 对象
-        order = Order(id, passenger, departure, destination, start_time, end_time, virtual_departure, battery,distance)
+        order = Order(id, passenger, departure, destination, start_time, 
+                      end_time, virtual_departure, battery,distance,revenue,penalty)
         
         Orders[id] = order
-    return Orders , revenue_vector, penalty_vector
+    return Orders 
 
 def city_node_generator(G:CityGraph,
                         order_virtual:Dict,
@@ -83,7 +81,7 @@ def city_node_generator(G:CityGraph,
         vehicle_available = {}
         # 根据现有的车队序列和订单序列为每个城市添加信息
         for vehicle in Vehicles.values():
-            if vehicle.which_city() == city_id:
+            if vehicle.whether_city and vehicle.intercity == city_id:
                 vehicle_available[vehicle.id]=vehicle
         for order in order_virtual.values():
             if order.virtual_departure == city_id:

@@ -98,16 +98,15 @@ class Lower_Layer:
                 # print(city.id)
                 continue
             if not city.virtual_departure:
-                print(city.id)
                 continue
             # 获取每个城市的最低电池需求
             least_battery_demand = min(
                 order.battery for order in city.virtual_departure.values()
             )
-            print(least_battery_demand)
             # 按照路径划分订单,如果两者未重合或包含，那么不可同时匹配
             for order1, order2 in combinations(city.virtual_departure.values(), 2):
                 _,path_order1 = self.city_graph.get_intercity_path(*order1.route())
+                # 需要详细的分情况解决
                 _,path_order2 = self.city_graph.get_intercity_path(*order2.route())
                 if str(path_order1)[1:-1] not in str(path_order2) or str(path_order2)[1:-1] not in str(path_order1):
                     self.model.addConstrs(
@@ -115,6 +114,7 @@ class Lower_Layer:
                             for vehicle in city.vehicle_available.values()),
                         name=f"constrain_3_1_order_contain_1"
                     )
+                
                 
 
             for vehicle in city.available_vehicles.values():
@@ -139,7 +139,7 @@ class Lower_Layer:
                     )
 
                     # 禁止不在当前城市的车辆匹配
-                    if vehicle.which_city() != order.virtual_departure:
+                    if vehicle.intercity != order.virtual_departure:
                         self.model.addConstr(
                             (self.X_Order[order.id, vehicle.id] == 0),
                             name=f"constrain_3_4_order_{order.id}_vehicle_{vehicle.id}"
@@ -162,7 +162,10 @@ class Lower_Layer:
                         # print(vehicle.id)
                         continue
                     else:
+                        continue
+                        # 暂时跳过
                         # 路径约束：车辆必须遵守路径规则
+                        # 需要详细的分情况解决
                         furthest = self.city_graph.passby_most(vehicle.get_orders())
                         _,past = self.city_graph.passby_most(furthest[0],order.departure)
                         current = str(furthest)[len(str(past)):]
@@ -196,14 +199,13 @@ class Lower_Layer:
             # 如果车辆有订单,这个并不能应对初始情况
             if len(vehicle.get_orders()) > 0:
                 # 为车辆添加约束：其充电状态为0,闲置同理
-                print(vehicle.id)
                 self.model.addConstr(self.X_Vehicle[vehicle.id, 1] + 
                                      self.X_Vehicle[vehicle.id, 2]== 0,
                                      name=f"constrian_5_0_{vehicle.id}")
             # 容量约束
             self.model.addConstr(
                 sum(self.X_Order[order.id, vehicle.id]* order.passenger 
-                    for order in self.Order.values())<= 7, #vehicle.get_capacity()
+                    for order in self.Order.values())<= 7-vehicle.get_capacity(), #vehicle.get_capacity()
                 name=f"constrain_5_1_{vehicle.id}"
             )
             # 是否有订单，这个确保了不会出现无订单却dispatching
@@ -212,16 +214,27 @@ class Lower_Layer:
                 >= self.X_Vehicle[vehicle.id, 0],
                 name=f"constrain_5_{vehicle.id}"
             )
-    def set_objective(self, cost_matrix, revenue_vector, penalty_vector,cancel_penalty):
+    def set_objective(self, cost_matrix,cancel_penalty):
         # 好像gurobi不能进行矩阵计算
         """目前无法实现“动一动”功能。
             办法一：限制连续dispatching次数，可以在vehicle中增加记录功能
             一种办法：约束函数仅对每个城市构建，而非全局
         """
-
-        order_revenue = quicksum(self.X_Vehicle[v, 0]*self.X_Order[o, v] * revenue_vector[o] for o in range(self.num_order) for v in self.group[0])
+        try:
+            order_revenue = quicksum(self.X_Vehicle[v, 0]*self.X_Order[order.id, v] * order.revenue for order in self.Order.values() for v in self.group[0])
+        except:
+            for order in self.Order.values():
+                for v in self.group[0]:
+                    try:
+                        # 打印当前下标
+                        print(f"o: {order.id}, v: {v}")
+                        # 访问目标值，模拟表达式
+                        _ = self.X_Vehicle[v, 0] * self.X_Order[order.id, v] * order.revenue
+                    except IndexError as e:
+                        print(f"IndexError with o={order.id}, v={v}: {e}")
+                        raise
         vehicle_cost = quicksum(self.X_Vehicle[v, c] * cost_matrix[v][c] for v in range(self.num_vehicle) for c in range(0,4))
-        order_penalty = quicksum(1 - quicksum(self.X_Order[o, v] for v in self.group[0]) * penalty_vector[o] for o in range(self.num_order))
+        order_penalty = quicksum(1 - quicksum(self.X_Order[order.id, v] for v in self.group[0]) * order.penalty for order in self.Order.values())
 
         self.model.setObjective(order_revenue - vehicle_cost - order_penalty-cancel_penalty, GRB.MAXIMIZE)
     def get_real_id(self):

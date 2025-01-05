@@ -12,36 +12,53 @@ import RL
 import importlib
 import tool_func
 
-def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,Orders:Dict,orders_unmatched:Dict):
+def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict):
     i = 0
     real_id = temp_Lower_Layer.get_real_id()
-    changed_vehicle = []
+    
     delet_list = []
     num_vehicle = temp_Lower_Layer.num_vehicle
+    j = 0
+    for order in orders_unmatched.values():
+        order.id = real_id[j]
+        j+= 1
     for v in temp_Lower_Layer.model.getVars():
-       
+        if temp_Lower_Layer.model.status != GRB.OPTIMAL:
+            break
         # 按下标获取车辆
         if i < 4 * num_vehicle:
             
             # 对于dispatching
             if i%4 == 0:
-                Vehicles[i//4].update_time()
+                # Vehicles[i//4].update_time()
                 if v.x == 1.0:
-                    Vehicles[i//4].update_state(0) 
+                    Vehicles[i//4].decision = 0
                     # 前往的城市在订单的迭代中修改
             # 对于charging
             if i%4 == 1:
-                if v.x == 1.0:
-                    Vehicles[i//4].update_state(1)
+                if v.x == 1.0 :
+                    Vehicles[i//4].decision = 1
+                
             # 对于idle
             if i%4 == 2:
-                if v.x == 1.0:
-                    Vehicles[i//4].update_state(2)
+                if v.x == 1.0 :
+                    Vehicles[i//4].decision = 2
+                    
+            if i%4 == 3:
+                if v.x == 1.0 :
+                    Vehicles[i//4].decision = 3
+                    # 整一个
         else:
             
             # 如果该订单被匹配
             if v.x == 1.0:
-                order_temp = Orders[(i - 4 * num_vehicle) // num_vehicle] 
+                try:
+                    order_temp = orders_unmatched[real_id[(i - 4 * num_vehicle) // num_vehicle]] 
+                except:
+                    for order in orders_unmatched.values():
+                        print(order)
+                    print(real_id[(i - 4 * num_vehicle) // num_vehicle])
+                    
                 vehicle_temp = Vehicles[(i - 4 * num_vehicle) % num_vehicle]
                 
                 # 添加此订单并修改目标城市
@@ -50,8 +67,10 @@ def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,Orders:Dict,orders_un
 
                 # 添加订单和车辆匹配
                 vehicle_temp.add_order(order_temp)
+                
                 order_temp.match_vehicle(vehicle_temp.id)
                 # 只有当车辆ID不在changed_vehicle中时，才会执行以下操作
+                """
                 if vehicle_temp.id not in changed_vehicle:
                     
                     if order_temp.virtual_departure != order_temp.departure:
@@ -62,32 +81,76 @@ def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,Orders:Dict,orders_un
                         vehicle_temp.move_to_city(path[1])
                         
                 changed_vehicle.append(vehicle_temp.id)
+                """
         i+=1
-    j = 0
-    for order in orders_unmatched.values():
-        order.id = real_id[j]
-        j+= 1
-    print(delet_list)
-    print(real_id)
-    for order_id in delet_list:
-        del orders_unmatched[order_id]
+    if delet_list:
+        for order_id in delet_list:
+            del orders_unmatched[order_id]
+   
+                
+            
+   
+    
+    
 
 def update_vehicle(Vehicles:Dict,battery_consume:int,battery_add:int,speed:int,G:CityGraph):
-    for vehicle in Vehicles.values():
-        vehicle.update_time()
+    vehicle_intercity = 0
 
+    for vehicle in Vehicles.values():
+        
         if vehicle.decision == 3:
+
+            vehicle_intercity += 1
             vehicle.battery -= battery_consume
+            
             distance,_ = G.get_intercity_path(vehicle.into_city,vehicle.intercity)
-            if distance/speed < vehicle.time - vehicle.into_city_time:
+            if distance/speed < vehicle.time - vehicle.time_into_city:
                 vehicle.move_into_city()
+                vehicle.decision = 0
+                delete_list = []
+                for order in vehicle.get_orders():
+                    if order.destination == vehicle.intercity and vehicle.whether_city:
+                        delete_list.append(order.id)
+                vehicle.delete_orders(delete_list)
+                
             else:
-                if vehicle.last_decison == 0:
-                    vehicle.last_decision = 3
+                vehicle.decision = 3
+
         if vehicle.decision == 1:
+            
             vehicle.battery += battery_add
             if vehicle.battery >= 100:
                 vehicle.battery = 100
+
+        if vehicle.last_decision == 0 :
+            if vehicle.decision != 3:
+                
+                order = vehicle.get_orders()[0]
+                if vehicle.intercity != order.departure:
+                    vehicle.move_to_city(order.departure)
+                else:
+                    _, path = G.get_intercity_path(*order.route())
+                    vehicle.move_to_city(path[1])
+                vehicle.decision = 3
+            
+        
+
+            # 强制驱逐
+            """
+            if vehicle.last_decison == 0 and vehicle.decision == 0:
+                order = vehicle.get_orders()[0]
+                print(order)
+                if vehicle.intercity != order.departure:
+                    vehicle.move_to_city(order.departure)
+                else:
+                    _, path = G.get_intercity_path(*order.route())
+                    vehicle.move_to_city(path[1])
+                vehicle.update_state(3)
+            vehicle.update_state(0)
+            """
+        vehicle.update_time()
+            
+    return len(Vehicles)-vehicle_intercity
 
 def update_order(order_unmatched:Dict,time:int,speed:int):
     to_delete = []
@@ -103,6 +166,22 @@ def update_order(order_unmatched:Dict,time:int,speed:int):
     
     return order_canceled
  
+def self_update(Vehicles:Dict,G:CityGraph):
+    for vehicle in Vehicles.values():
+        if vehicle.get_capacity() > 3 and vehicle.decision == 0 :
+            vehicle.decision = 3
+            order = vehicle.get_orders()[0]
+            if vehicle.intercity != order.departure:
+                vehicle.move_to_city(order.departure)
+            else:
+                _, path = G.get_intercity_path(*order.route())
+                vehicle.move_to_city(path[1])
+        elif vehicle.decision == 3:
+            vehicle.decision = 3
+        elif vehicle.decision == 0:
+            vehicle.decision = 0
+        else:
+            vehicle.decision = 2
     
 
 
