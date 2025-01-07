@@ -104,6 +104,13 @@ class Lower_Layer:
                 order.battery for order in city.virtual_departure.values()
             )
             # 按照路径划分订单,如果两者未重合或包含，那么不可同时匹配
+            """
+            ABCD
+            EABCD 
+            FEABCD
+            FEABCDG
+            HABCD
+            """
             for order1, order2 in combinations(city.virtual_departure.values(), 2):
                 _,path_order1 = self.city_graph.get_intercity_path(*order1.route())
                 # 需要详细的分情况解决
@@ -125,6 +132,12 @@ class Lower_Layer:
                         (self.X_Order[order.id, vehicle.id] == 0 for order in city.virtual_departure.values()),
                         name=f"constrain_3_2_0_vehicle_{vehicle.id}"
                     )
+                    # 强制充电
+                    if vehicle.id in self.group[0]:
+                        self.model.addConstr(
+                                (self.X_Vehicle[vehicle.id, 1] == 1),
+                                name=f"constrain_3_2_2_vehicle_{vehicle.id}"
+                            )
                     if len(vehicle.get_orders()) == 0:
                         self.model.addConstr(
                             (self.X_Vehicle[vehicle.id, 0] == 0),

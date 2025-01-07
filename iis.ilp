@@ -1,12 +1,13 @@
 \ Model navie_copy
 \ LP format - for model browsing. Use MPS format to capture full model detail.
-\ Signature: 0x74aef593b6f09da1
+\ Signature: 0xe7a56386a108b9c8
 Maximize
  
 Subject To
- constrain_3_2_1_vehicle_3: var_vehicle[3,0] = 0
- constrian_5_0_3: var_vehicle[3,0] = 1
+ constraints_2_1[0]: var_vehicle[0,0] + var_vehicle[0,1] + var_vehicle[0,2]
+   = 0
+ constrain_3_2_2_vehicle_0: var_vehicle[0,1] = 1
 Bounds
 Binaries
- var_vehicle[3,0]
+ var_vehicle[0,0] var_vehicle[0,1] var_vehicle[0,2]
 End
