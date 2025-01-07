@@ -94,9 +94,10 @@ def city_node_generator(G:CityGraph,
                  vehicle_available,
                  10, 
                  real_departure, 
-                 virtual_departure)
+                 virtual_departure,
+                 )
         Cities[city_id] = city
     return Cities
-def update(X:Dict):
-    pass
+
+
 

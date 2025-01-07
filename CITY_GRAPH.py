@@ -135,12 +135,14 @@ class CityGraph:
     def passby_most(self, orders:list[Order]):
         """输出一组订单中经过城市数目最多的"""
         i = 0
+        
         for order in orders:
             _,path_node = self.get_intercity_path(*order.virtual_route())
             if i == 0:
                 max_node = path_node
-            if i> 0 and len(path_node) > max_node:
+                max_order = order
+            if i> 0 and len(path_node) > len(max_node):
                 max_node = path_node
-                
+                max_order = order
             i+=1
-        return path_node
+        return path_node, max_order

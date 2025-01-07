@@ -125,10 +125,11 @@ class Lower_Layer:
                         (self.X_Order[order.id, vehicle.id] == 0 for order in city.virtual_departure.values()),
                         name=f"constrain_3_2_0_vehicle_{vehicle.id}"
                     )
-                    self.model.addConstr(
-                        (self.X_Vehicle[vehicle.id, 0] == 0),
-                        name=f"constrain_3_2_1_vehicle_{vehicle.id}"
-                    )
+                    if len(vehicle.get_orders()) == 0:
+                        self.model.addConstr(
+                            (self.X_Vehicle[vehicle.id, 0] == 0),
+                            name=f"constrain_3_2_1_vehicle_{vehicle.id}"
+                        )
                 
                 for order in city.virtual_departure.values():
                     """确保闲置充电者无订单"""
@@ -196,24 +197,26 @@ class Lower_Layer:
         """约束：至少有一个订单的车辆，其充电状态为0"""
        
         for vehicle in self.Vehicle.values():
+            if vehicle.id in self.group[0]:
             # 如果车辆有订单,这个并不能应对初始情况
-            if len(vehicle.get_orders()) > 0:
-                # 为车辆添加约束：其充电状态为0,闲置同理
-                self.model.addConstr(self.X_Vehicle[vehicle.id, 1] + 
-                                     self.X_Vehicle[vehicle.id, 2]== 0,
-                                     name=f"constrian_5_0_{vehicle.id}")
-            # 容量约束
-            self.model.addConstr(
-                sum(self.X_Order[order.id, vehicle.id]* order.passenger 
-                    for order in self.Order.values())<= 7-vehicle.get_capacity(), #vehicle.get_capacity()
-                name=f"constrain_5_1_{vehicle.id}"
-            )
-            # 是否有订单，这个确保了不会出现无订单却dispatching
-            self.model.addConstr(
-                sum(self.X_Order[order.id, vehicle.id] for order in self.Order.values()) 
-                >= self.X_Vehicle[vehicle.id, 0],
-                name=f"constrain_5_{vehicle.id}"
-            )
+                if len(vehicle.get_orders()) > 0:
+                    # 为车辆添加约束：其充电状态为0,闲置同理
+                    self.model.addConstr(self.X_Vehicle[vehicle.id, 0] == 1,
+                                        name=f"constrian_5_0_{vehicle.id}")
+                else:
+                    # 是否有订单，这个确保了不会出现无订单却dispatching
+                    self.model.addConstr(
+                        sum(self.X_Order[order.id, vehicle.id] for order in self.Order.values()) 
+                        >= self.X_Vehicle[vehicle.id, 0],
+                        name=f"constrain_5_{vehicle.id}"
+                    )
+                # 容量约束
+                self.model.addConstr(
+                    sum(self.X_Order[order.id, vehicle.id]* order.passenger 
+                        for order in self.Order.values())<= 7-vehicle.get_capacity(), #vehicle.get_capacity()
+                    name=f"constrain_5_1_{vehicle.id}"
+                )
+  
     def set_objective(self, cost_matrix,cancel_penalty):
         # 好像gurobi不能进行矩阵计算
         """目前无法实现“动一动”功能。

@@ -24,6 +24,7 @@ class Vehicle:
         self.time_into_city = time
         self.orders = orders if orders else {}  # 初始化订单字典
         self.history_orders = []
+        self.longest_path = []
 
     def __repr__(self):
         return (f"Vehicle(id={self.id}, time={self.time}, "
@@ -57,7 +58,8 @@ class Vehicle:
     def decision(self, decision):
         """添加新的决策"""
         self._decisions.append(decision)
-    
+    def replace_decision(self,decision):
+        self._decisions[-1] = decision
     def update_time(self):
         self.time += 1
     def get_history_decisions(self):
@@ -107,3 +109,5 @@ class Vehicle:
     def get_orders(self):
         """获取所有订单对象"""
         return list(self.orders.values())
+    
+    

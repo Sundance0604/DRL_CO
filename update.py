@@ -44,9 +44,6 @@ def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict
                 if v.x == 1.0 :
                     Vehicles[i//4].decision = 2
                     
-            if i%4 == 3:
-                if v.x == 1.0 :
-                    Vehicles[i//4].decision = 3
                     # 整一个
         else:
             
@@ -86,13 +83,7 @@ def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict
     if delet_list:
         for order_id in delet_list:
             del orders_unmatched[order_id]
-   
-                
-            
-   
-    
-    
-
+ 
 def update_vehicle(Vehicles:Dict,battery_consume:int,battery_add:int,speed:int,G:CityGraph):
     vehicle_intercity = 0
 
@@ -100,29 +91,50 @@ def update_vehicle(Vehicles:Dict,battery_consume:int,battery_add:int,speed:int,G
         
         if vehicle.decision == 3:
 
-            vehicle_intercity += 1
-            vehicle.battery -= battery_consume
             
-            distance,_ = G.get_intercity_path(vehicle.into_city,vehicle.intercity)
+            vehicle.battery -= battery_consume
+            try:
+                distance,_ = G.get_intercity_path(vehicle.into_city,vehicle.intercity)
+            except:
+                print(vehicle.into_city,vehicle.intercity,vehicle.longest_path)
             if distance/speed < vehicle.time - vehicle.time_into_city:
+                
                 vehicle.move_into_city()
+            
                 vehicle.decision = 0
                 delete_list = []
                 for order in vehicle.get_orders():
                     if order.destination == vehicle.intercity and vehicle.whether_city:
                         delete_list.append(order.id)
-                vehicle.delete_orders(delete_list)
                 
+                vehicle.delete_orders(delete_list)
             else:
+                vehicle_intercity += 1
                 vehicle.decision = 3
+            
+
 
         if vehicle.decision == 1:
             
             vehicle.battery += battery_add
-            if vehicle.battery >= 100:
-                vehicle.battery = 100
-
-        if vehicle.last_decision == 0 :
+            # if vehicle.battery >= 100:先不管
+                #vehicle.battery = 10000
+        if vehicle.decision == 0 and vehicle.get_capacity() > 0:
+            vehicle.replace_decision(3)
+            #不清楚,要再改
+            longest_path, _ = G.passby_most(vehicle.get_orders())
+            if len(vehicle.longest_path) == 0:
+                vehicle.longest_path = longest_path
+            if vehicle.intercity != vehicle.longest_path[0]:
+                vehicle.move_to_city(vehicle.longest_path[0])
+                vehicle.longest_path = vehicle.longest_path[1:]
+            else:
+                vehicle.longest_path = vehicle.longest_path[1:]
+                vehicle.move_to_city(vehicle.longest_path[0])
+                vehicle.longest_path = vehicle.longest_path[1:]
+            # 强制驱逐
+            """
+            if vehicle.last_decision == 0 :
             if vehicle.decision != 3:
                 
                 order = vehicle.get_orders()[0]
@@ -131,12 +143,7 @@ def update_vehicle(Vehicles:Dict,battery_consume:int,battery_add:int,speed:int,G
                 else:
                     _, path = G.get_intercity_path(*order.route())
                     vehicle.move_to_city(path[1])
-                vehicle.decision = 3
-            
-        
-
-            # 强制驱逐
-            """
+                vehicle.replace_decision(3)
             if vehicle.last_decison == 0 and vehicle.decision == 0:
                 order = vehicle.get_orders()[0]
                 print(order)
@@ -168,20 +175,32 @@ def update_order(order_unmatched:Dict,time:int,speed:int):
  
 def self_update(Vehicles:Dict,G:CityGraph):
     for vehicle in Vehicles.values():
-        if vehicle.get_capacity() > 3 and vehicle.decision == 0 :
-            vehicle.decision = 3
+        if vehicle.decision == 0 and vehicle.get_capacity() > 0:
+            vehicle.replace_decision(3)
+            longest_path = G.passby_most(vehicle.get_orders())
+            if len(vehicle.longest_path) == 0:
+                vehicle.longest_path = longest_path
+            if vehicle.intercity != vehicle.longest_path[0]:
+                vehicle.move_to_city(vehicle.longest_path[0])
+                vehicle.longest_path = vehicle.longest_path[1:]
+            else:
+                vehicle.longest_path = vehicle.longest_path[1:]
+                vehicle.move_to_city(vehicle.longest_path[0])
+                vehicle.longest_path = vehicle.longest_path[1:]
+            
+            """
             order = vehicle.get_orders()[0]
             if vehicle.intercity != order.departure:
                 vehicle.move_to_city(order.departure)
             else:
                 _, path = G.get_intercity_path(*order.route())
                 vehicle.move_to_city(path[1])
+            """
+            
         elif vehicle.decision == 3:
-            vehicle.decision = 3
-        elif vehicle.decision == 0:
-            vehicle.decision = 0
+            pass
         else:
-            vehicle.decision = 2
+            vehicle.decision = 1
     
 
 
