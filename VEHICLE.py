@@ -24,7 +24,7 @@ class Vehicle:
         self.time_into_city = time
         self.orders = orders if orders else {}  # 初始化订单字典
         self.history_orders = []
-        self.longest_path = []
+        self.longest_path = [-1]
 
     def __repr__(self):
         return (f"Vehicle(id={self.id}, time={self.time}, "

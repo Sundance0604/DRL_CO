@@ -1,4 +1,5 @@
-from typing import Dict
+import csv
+import numpy as np
 from gurobipy import *
 from CITY_GRAPH import *
 from CITY_NODE import *
@@ -7,45 +8,183 @@ from VEHICLE import *
 from tool_func import *
 from Lower_Layer import *
 import SETTING
-import RL
+import importlib
+import tool_func
+from update import *
+import os
+import time as tm
+import copy
+from my_env import *
+import torch
+from actor_critic import *
 
-Vehicles = vehicle_generator(SETTING.num_vehicle, SETTING.num_city)
+"""这里是非强化学习部分"""
+# 初始化
+num_vehicle = 20
+num_order = 7
+num_city = 5
+TIME = 144  # 
+CAPACITY = 7
+row = [10, 1, 3, 10]
+Vehicles = {}
+speed = 20
+cancel_penalty = 300
+battery_consume = 10
+battery_add = 300
+
+matrix = np.tile(row, (num_vehicle, 1))
+
+# 初始化
+Vehicles = vehicle_generator(num_vehicle, num_city)
 orders_unmatched = {}
-G = CityGraph(SETTING.num_nodes,SETTING.edge_prob,SETTING.weight_range)
-city_node = city_node_generator(G)
+G = CityGraph(num_city, 0.3, (10, 30))
 name = "navie"
+cancel_penalty = 300
+order_canceled = 0
+Total_order = {}
 
-for turn in range(0, SETTING.train):
-    for t in range(0, set.total_time):
+# 设置s_0
+for time in range(TIME):
+    Orders = order_generator(num_order, time, num_city-1, CAPACITY, G ,speed)
+    for order in Orders.values():
+        Total_order[order.id] = order
 
-        for order in order_generator(SETTING.num_order, SETTING.num_city):
-            orders_unmatched[order.id] = order
-        
-        order_virtual = RL.allocate(orders_unmatched) #此处强化学习
-        temp_Lower_Layer = Lower_Layer(SETTING.num_vehicle, SETTING.num_order, G, 
-                                    city_node ,Vehicles, order_virtual ,name)
-        temp_Lower_Layer.get_decision()
-        temp_Lower_Layer.constrain_1()
-        temp_Lower_Layer.constrain_2()
-        temp_Lower_Layer.constrain_3()
-        temp_Lower_Layer.constrain_4()
-        temp_Lower_Layer.constrain_5()
-        temp_Lower_Layer.set_objective()
-        temp_Lower_Layer.model.optimize()
-        if temp_Lower_Layer.model.status == GRB.OPTIMAL:
-            # 打印变量的最优值
-            print("Optimal solution:")
-            for v in temp_Lower_Layer.model.getVars():
-                print(f"{v.varName} = {v.x}")
-            # 打印目标函数值
-            print("Objective value:", temp_Lower_Layer.model.objVal)
-            RL.reward(temp_Lower_Layer.model.objVal)#此处返回给强化学习
-            update(temp_Lower_Layer.model.getVars(),t)
+# 深复制最初的订单与车辆
+prim_order = copy.deepcopy(Total_order)
+prim_vehicle = copy.deepcopy(Vehicles)
+
+"""这里是强化学习部分"""
+# 超参数
+STATE_DIM_VEHICLE = 11   # 车辆状态的特征维度
+STATE_DIM_ORDER = 12     # 订单状态的特征维度
+HIDDEN_DIM = 128         # 隐藏层维度
+ACTION_DIM = num_city          # 动作空间维度
+ACTOR_LR = 1e-4          # Actor 学习率
+CRITIC_LR = 1e-3         # Critic 学习率
+GAMMA = 0.99             # 折扣因子
+NUM_EPISODES = 50       # 总训练轮数
+STATE_DIM = (num_order * TIME+ num_vehicle)*HIDDEN_DIM       
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+agent = ActorCritic(
+    vehicle_dim=STATE_DIM_VEHICLE,
+    order_dim=STATE_DIM_ORDER,
+    state_dim=STATE_DIM,
+    hidden_dim=HIDDEN_DIM,
+    action_dim= num_order *TIME * num_city,
+    actor_lr=ACTOR_LR,
+    critic_lr=CRITIC_LR,
+    gamma=GAMMA,
+    device=DEVICE,
+    num_order= num_order*TIME,
+    num_city=num_city
+)
+
+# 开始计时
+start_time = tm.time()
+episode_reward = 0
+for episode in range(NUM_EPISODES):
+    print(f"第{episode}次训练")
+    Total_order = copy.deepcopy(prim_order)
+    Vehicles = copy.deepcopy(prim_vehicle)
+    objval = 0
+    total_objval = 0
+    reward = 0
+    episode_reward = 0
+    invalid_time =  0
+    
+    for time in range(TIME):
+        group = [[], []]
+
+        # 按时间给出订单
+        for order in Total_order.values():
+            if order.start_time == time:
+                orders_unmatched[order.id] = order 
+        if time != 0 and episode != 0:
+            next_vehicle_states = vectorization_vehicle(Vehicles)
+            next_order_states = vectorization_order(Total_order)
+            # 这里防止梯度爆炸缩小了reward
+            agent.update(vehicle_states, order_states, grid_reward, next_vehicle_states, next_order_states, True ,action)
+        if time == 0 :
+            orders_virtual = orders_unmatched
+           
+            city_node = city_node_generator(G, orders_virtual, Vehicles, orders_unmatched)
+            if episode == 1:
+                env = DispatchEnv(
+                    time=time,
+                    G=G,
+                    vehicles=Vehicles,
+                    orders=Total_order,
+                    cities=city_node,
+                    capacity=CAPACITY
+                )
         else:
-            print("No optimal solution found.")
-            break
-    RL.update()
-    
+            city_node = city_update_without_drl(city_node , Vehicles, orders_unmatched)
+        if episode != 0:
+            vehicle_states = vectorization_vehicle(Vehicles)
+            order_states = vectorization_order(Total_order)
+            action = agent.take_action(vehicle_states, order_states)
+            reward = env.step(action)
+            city_update_base_drl(city_node, orders_unmatched)
+        
+        for vehicle in Vehicles.values():
+            if vehicle.whether_city:
+                group[0].append(vehicle.id)
+            else:
+                group[1].append(vehicle.id)
 
+        if len(group[0]) != 0:
+            temp_Lower_Layer = Lower_Layer(G, city_node, Vehicles, orders_unmatched, name, group, time)
+            temp_Lower_Layer.get_decision()
+            temp_Lower_Layer.constrain_1()
+            temp_Lower_Layer.constrain_2()
+            temp_Lower_Layer.constrain_3()
+            temp_Lower_Layer.constrain_4()
+            temp_Lower_Layer.constrain_5()
+            temp_Lower_Layer.model.setParam('OutputFlag', 0)
+            total_penalty = cancel_penalty * order_canceled
+            temp_Lower_Layer.set_objective(matrix)
+        
+            temp_Lower_Layer.model.optimize()
 
-    
+            if temp_Lower_Layer.model.status == GRB.OPTIMAL:
+                save_results(temp_Lower_Layer,time)
+                # print("Objective value:", temp_Lower_Layer.model.objVal)
+                objval = temp_Lower_Layer.model.objVal 
+            else:
+                temp_Lower_Layer.model.computeIIS()
+                temp_Lower_Layer.model.write('iis.ilp')  # 保存不可行约束
+                # print(f"{time}次，No optimal solution found.")
+                self_update(Vehicles, G)
+                objval = basic_cost(Vehicles, orders_unmatched)
+                
+            
+            _, var_order = temp_Lower_Layer.get_decision()
+            update_var(temp_Lower_Layer, Vehicles, orders_unmatched)
+            vehicle_in_city = update_vehicle(Vehicles, battery_consume, battery_add, speed, G)
+            order_canceled = order_canceled + update_order(orders_unmatched, time, speed)
+            
+        else:
+            self_update(Vehicles, G)
+            # print(f"{time}次，{len(group[1])}辆车不在城市")
+            order_canceled = order_canceled + update_order(orders_unmatched, time, speed)
+            objval = basic_cost(Vehicles, orders_unmatched)
+            # 利润（如果有）减去新增的取消订单
+            
+            invalid_time += 1
+        objval = objval - update_order(orders_unmatched, time, speed) * cancel_penalty
+        if episode != 0: 
+            reward += objval 
+            # 防止梯度爆炸
+            grid_reward =  objval /reward
+            # print(grid_reward)
+            episode_reward += reward
+        total_objval += objval
+        # print(f"{len(orders_unmatched)}订单未被匹配,{order_canceled}订单超时,总利润为{objval},强化学习利润为{reward}")
+        
+
+    end_time = tm.time()
+    execution_time = end_time - start_time
+    if episode != 0:
+        print(f"执行时间: {execution_time} 秒,{invalid_time}次未求解，当前强化学习值为{episode_reward}")
+    else:
+        print(f"未加强化学习利润为{total_objval},{invalid_time}次未求解")

@@ -7,7 +7,8 @@ logging.basicConfig(level=logging.INFO)
 class Order:
     def __init__(self, id: int, passenger: int, departure: int, destination: int, 
                  start_time: int, end_time: int, virtual_departure: int, 
-                 battery: float,distance:int, revenue:int, penalty:int):
+                 battery: float,distance:int, revenue:int, penalty:int,
+                 least_time_consume:int):
         self.id = id             # 订单 ID
         self.passenger = passenger  # 乘客数
         self.departure = departure          # 出发地
@@ -21,6 +22,7 @@ class Order:
         self.distance = distance
         self.revenue = revenue
         self.penalty = penalty
+        self.least_time_consume = least_time_consume
     def __repr__(self):
         """打印订单的简洁信息"""
         matched_status = "Matched" if self.matched else "Unmatched"

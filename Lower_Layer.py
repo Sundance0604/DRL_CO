@@ -112,10 +112,10 @@ class Lower_Layer:
             HABCD
             """
             for order1, order2 in combinations(city.virtual_departure.values(), 2):
-                _,path_order1 = self.city_graph.get_intercity_path(*order1.route())
+                _,path_order1 = self.city_graph.get_intercity_path(*order1.virtual_route())
                 # 需要详细的分情况解决
-                _,path_order2 = self.city_graph.get_intercity_path(*order2.route())
-                if str(path_order1)[1:-1] not in str(path_order2) or str(path_order2)[1:-1] not in str(path_order1):
+                _,path_order2 = self.city_graph.get_intercity_path(*order2.virtual_route())
+                if str(path_order1) not in str(path_order2) and str(path_order2) not in str(path_order1):
                     self.model.addConstrs(
                         (self.X_Order[order1.id, vehicle.id] + self.X_Order[order1.id, vehicle.id] <= 1
                             for vehicle in city.vehicle_available.values()),
@@ -166,15 +166,19 @@ class Lower_Layer:
                             name=f"constrain_3_5_order_{order.id}_vehicle_{vehicle.id}"
                         )
                     # 时间窗口约束
-                    _, deadline = order.time_window()
-                    if time_consume(order) > deadline - vehicle.time:
+                    if order.end_time < order.least_time_consume  + vehicle.time:
                         self.model.addConstr(
                             (self.X_Order[order.id, vehicle.id] == 0),
                             name=f"constrain_3_6_order_{order.id}_vehicle_{vehicle.id}"
                         )
-                    if not vehicle.get_orders():
-                        # print(vehicle.id)
-                        continue
+                    if vehicle.get_orders():
+                        # 含有订单者
+                        _,path_order = self.city_graph.get_intercity_path(*order.virtual_route())
+                        if str(vehicle.longest_path) not in str(path_order) and str(path_order) not in str(vehicle.longest_path):
+                            self.model.addConstr(
+                                self.X_Order[order.id ,vehicle.id]==0,
+                                name = f"constrain_3_7_order_{order.id}_vehicle_{vehicle.id}"
+                            )
                     else:
                         continue
                         # 暂时跳过
@@ -230,7 +234,7 @@ class Lower_Layer:
                     name=f"constrain_5_1_{vehicle.id}"
                 )
   
-    def set_objective(self, cost_matrix,cancel_penalty):
+    def set_objective(self, cost_matrix):
         # 好像gurobi不能进行矩阵计算
         """目前无法实现“动一动”功能。
             办法一：限制连续dispatching次数，可以在vehicle中增加记录功能
@@ -252,7 +256,7 @@ class Lower_Layer:
         vehicle_cost = quicksum(self.X_Vehicle[v, c] * cost_matrix[v][c] for v in range(self.num_vehicle) for c in range(0,4))
         order_penalty = quicksum(1 - quicksum(self.X_Order[order.id, v] for v in self.group[0]) * order.penalty for order in self.Order.values())
 
-        self.model.setObjective(order_revenue - vehicle_cost - order_penalty-cancel_penalty, GRB.MAXIMIZE)
+        self.model.setObjective(order_revenue - vehicle_cost - order_penalty, GRB.MAXIMIZE)
     def get_real_id(self):
         return self.real_id
     

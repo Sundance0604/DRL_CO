@@ -8,7 +8,6 @@ from VEHICLE import *
 from tool_func import *
 from Lower_Layer import *
 import SETTING
-import RL
 import importlib
 import tool_func
 
@@ -117,21 +116,15 @@ def update_vehicle(Vehicles:Dict,battery_consume:int,battery_add:int,speed:int,G
         if vehicle.decision == 1:
             
             vehicle.battery += battery_add
+            vehicle.longest_decision = [-1]
+        
+        if vehicle.decision == 2:
+            vehicle.longest_decision = [-1]
             # if vehicle.battery >= 100:先不管
                 #vehicle.battery = 10000
-        if vehicle.decision == 0 and vehicle.get_capacity() > 0:
-            vehicle.replace_decision(3)
-            #不清楚,要再改
-            longest_path, _ = G.passby_most(vehicle.get_orders())
-            if len(vehicle.longest_path) == 0:
-                vehicle.longest_path = longest_path
-            if vehicle.intercity != vehicle.longest_path[0]:
-                vehicle.move_to_city(vehicle.longest_path[0])
-                vehicle.longest_path = vehicle.longest_path[1:]
-            else:
-                vehicle.longest_path = vehicle.longest_path[1:]
-                vehicle.move_to_city(vehicle.longest_path[0])
-                vehicle.longest_path = vehicle.longest_path[1:]
+        if vehicle.decision == 0 and len(vehicle.get_orders()) > 0 :# 怪哉 and vehicle.last_decision == 0 :
+            path_update(vehicle, G)
+                # vehicle.longest_path = vehicle.longest_path[1:]
             # 强制驱逐
             """
             if vehicle.last_decision == 0 :
@@ -176,18 +169,7 @@ def update_order(order_unmatched:Dict,time:int,speed:int):
 def self_update(Vehicles:Dict,G:CityGraph):
     for vehicle in Vehicles.values():
         if vehicle.decision == 0 and vehicle.get_capacity() > 0:
-            vehicle.replace_decision(3)
-            longest_path = G.passby_most(vehicle.get_orders())
-            if len(vehicle.longest_path) == 0:
-                vehicle.longest_path = longest_path
-            if vehicle.intercity != vehicle.longest_path[0]:
-                vehicle.move_to_city(vehicle.longest_path[0])
-                vehicle.longest_path = vehicle.longest_path[1:]
-            else:
-                vehicle.longest_path = vehicle.longest_path[1:]
-                vehicle.move_to_city(vehicle.longest_path[0])
-                vehicle.longest_path = vehicle.longest_path[1:]
-            
+            path_update(vehicle, G)
             """
             order = vehicle.get_orders()[0]
             if vehicle.intercity != order.departure:
@@ -201,8 +183,28 @@ def self_update(Vehicles:Dict,G:CityGraph):
             pass
         else:
             vehicle.decision = 1
+            vehicle.longest_path = [-1] 
     
 
 
-
+def path_update(vehicle:Vehicle, G:CityGraph):
+        vehicle.replace_decision(3)
         
+       
+        if len(vehicle.longest_path) == 0 or vehicle.longest_path == [-1] :
+            longest_path, _ = G.passby_most(vehicle.get_orders())
+            vehicle.longest_path = longest_path
+            # 主要是针对新建订单时的情况
+        if vehicle.intercity != vehicle.longest_path[0]:
+            
+            vehicle.move_to_city(vehicle.longest_path[0])
+            vehicle.longest_path = vehicle.longest_path[1:]
+        else: #vehicle.intercity != vehicle.longest_path[0]:
+            vehicle.longest_path = vehicle.longest_path[1:]
+            vehicle.move_to_city(vehicle.longest_path[0])
+            vehicle.longest_path = vehicle.longest_path[1:]
+        
+    
+            
+
+    

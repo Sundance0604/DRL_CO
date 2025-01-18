@@ -4,7 +4,8 @@ from VEHICLE import *
 import numpy as np
 import SETTING
 from CITY_NODE import * 
-
+import os
+import Lower_Layer
 per_distance_battery = 10
 def route_combine(lst, list1, list2):
     # 遍历所有可能的分割位置
@@ -37,7 +38,7 @@ def vehicle_generator(num_vehicle:int, num_city:int):
         Vehicles[vehicle.id] = vehicle
     return Vehicles
 
-def order_generator(num_order:int, time: int, num_city:int,CAPACITY,G:CityGraph):
+def order_generator(num_order:int, time: int, num_city:int,CAPACITY,G:CityGraph,speed):
     Orders = {}
     for i in range(0,num_order):
         id = i + time*num_order          # 订单 ID
@@ -46,19 +47,22 @@ def order_generator(num_order:int, time: int, num_city:int,CAPACITY,G:CityGraph)
         destination = random.randint(0, num_city-1) # 目的地
         while destination == departure:           
             destination = random.randint(0, num_city)
-        start_time = time                   # 起始时间
-        end_time = start_time+1000 #+ random.randint(0, TIME)  #+ time_consume(departure,destination) # 截止时间
+        
         virtual_departure = departure    # 预设为虚拟出发地
         try:
             distance,_ =G.get_intercity_path(departure, destination)
         except:
             print(departure,destination)
+        start_time = time                   # 起始时间
+        end_time = start_time+ distance/speed + random.randint(10,20)
         battery =random.uniform(0, 10)+distance*per_distance_battery             # 需要的电量
         revenue = distance * 100 + passenger * 50 # 随便编
         penalty = passenger * 5 # 随便编
+        least_time_consume = distance/speed
         # 创建 Order 对象
         order = Order(id, passenger, departure, destination, start_time, 
-                      end_time, virtual_departure, battery,distance,revenue,penalty)
+                      end_time, virtual_departure, battery,distance,revenue,penalty,
+                      least_time_consume)
         
         Orders[id] = order
     return Orders 
@@ -99,5 +103,93 @@ def city_node_generator(G:CityGraph,
         Cities[city_id] = city
     return Cities
 
+def city_update_without_drl(cities:dict, vehicles:dict, order_unmatched:dict):
+    for city in cities.values():
+        city.clean_all()
+        for vehicle in vehicles.values():
+            if vehicle.whether_city and vehicle.intercity == city.city_id:
+                city.add_available_vehicle(vehicle.id, vehicle)
+                
+        for order in order_unmatched.values():
+            if order.departure == city.city_id:
+                city.add_real_departure(order.id, order)
+                
+        for order in order_unmatched.values():
+            if order.virtual_departure == city.city_id:
+                city.add_virtual_departure(order.id, order)
+                
+    return cities
+
+def city_update_base_drl(cities:dict, order_virtual:dict):
+    for city in cities.values():
+        city.virtual_departure = {}
+    for order in order_virtual.values():
+        if order.departure == city.city_id:
+            city.add_virtual_departure(order.id, order)
 
 
+def save_results(temp_Lower_Layer, time):
+    # 创建保存结果的文件夹
+    output_dir = "output_files"
+    os.makedirs(output_dir, exist_ok=True)  # 如果文件夹不存在，则创建
+    
+    # 构造文件路径
+    file_path = os.path.join(output_dir, f"output_{time}.txt")
+    
+    # 打开文件并写入优化结果
+    with open(file_path, "w") as file:
+        for v in temp_Lower_Layer.model.getVars():
+            if v.x == 1:  # 如果变量值为 1，则写入文件
+                file.write(f"{v.varName} = {v.x}\n")
+
+def vectorization_vehicle(vehicles:Dict):
+    
+    return np.vstack([
+        np.array([  vehicle.time, 
+                    vehicle.into_city, 
+                    vehicle.intercity, 
+                    int(vehicle.whether_city), 
+                    vehicle.battery,
+                    vehicle.decision,
+                    vehicle.get_capacity(),
+                    vehicle.time_into_city,
+                    len(vehicle.get_orders()),
+                    # 是否凑成12个？
+                    vehicle.last_decision,
+                    vehicle.longest_path[0] if vehicle.longest_path else 0
+                    ],
+                    dtype=np.int32)
+    for vehicle in vehicles.values()])
+def vectorization_order(orders:Dict):
+
+    return np.vstack([
+    np.array([
+        order.passenger,
+        order.departure,
+        order.destination,
+        order.start_time,
+        order.end_time,
+        order.virtual_departure,
+        int(order.matched),  # 布尔值转为整数
+        order.battery,
+        order.distance,
+        order.revenue,
+        order.penalty,
+        order.least_time_consume
+    ], dtype=np.int32)  # 使用合适的 dtype
+    for order in orders.values()  # 假设 `orders` 是包含所有订单的集合
+])
+        
+def basic_cost(vehicles:dict, orders_unmatched:dict):
+    vehicle_cost = 0
+    order_cost = 0
+    for vehicle in vehicles.values():
+        if vehicle.decision == 0 or vehicle.decision == 3:
+            vehicle_cost += 10
+        if vehicle.decision == 1:
+            vehicle_cost += 1
+        if vehicle.decision == 0:
+            vehicle_cost += 0
+    for order in orders_unmatched.values():
+        order_cost += order.penalty
+    return vehicle_cost + order_cost

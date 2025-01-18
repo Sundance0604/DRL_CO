@@ -109,4 +109,7 @@ class City:
     def get_order_list(self):
         return list(self.virtual_departure.values())    
     
-
+    def clean_all(self):
+        self.vehicle_available = {}
+        self.virtual_departure = {}
+        self.real_departure = {}
