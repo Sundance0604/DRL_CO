@@ -6,6 +6,9 @@ import SETTING
 from CITY_NODE import * 
 import os
 import Lower_Layer
+from collections import defaultdict
+import torch
+
 per_distance_battery = 10
 def route_combine(lst, list1, list2):
     # 遍历所有可能的分割位置
@@ -103,7 +106,7 @@ def city_node_generator(G:CityGraph,
         Cities[city_id] = city
     return Cities
 
-def city_update_without_drl(cities:dict, vehicles:dict, order_unmatched:dict):
+def city_update_without_drl(cities:dict, vehicles:dict, order_unmatched:dict, time):
     for city in cities.values():
         city.clean_all()
         for vehicle in vehicles.values():
@@ -111,21 +114,24 @@ def city_update_without_drl(cities:dict, vehicles:dict, order_unmatched:dict):
                 city.add_available_vehicle(vehicle.id, vehicle)
                 
         for order in order_unmatched.values():
-            if order.departure == city.city_id:
-                city.add_real_departure(order.id, order)
+            if order.departure == city.city_id and order.matched is False:
+                if order.start_time <= time :
+                    city.add_real_departure(order.id, order)
                 
         for order in order_unmatched.values():
-            if order.virtual_departure == city.city_id:
-                city.add_virtual_departure(order.id, order)
+            if order.virtual_departure == city.city_id and order.matched is False:
+                if order.start_time <= time :
+                    city.add_virtual_departure(order.id, order)
                 
-    return cities
 
-def city_update_base_drl(cities:dict, order_virtual:dict):
+def city_update_base_drl(cities:dict, order_virtual:dict ,time:int):
     for city in cities.values():
         city.virtual_departure = {}
-    for order in order_virtual.values():
-        if order.departure == city.city_id:
-            city.add_virtual_departure(order.id, order)
+    # 忘记缩进了 >_<
+        for order in order_virtual.values():
+            if order.virtual_departure == city.city_id and order.matched is False:
+                if order.start_time <= time :
+                    city.add_virtual_departure(order.id, order)
 
 
 def save_results(temp_Lower_Layer, time):
@@ -193,3 +199,50 @@ def basic_cost(vehicles:dict, orders_unmatched:dict):
     for order in orders_unmatched.values():
         order_cost += order.penalty
     return vehicle_cost + order_cost
+
+def find_duplicates_with_positions(lst):
+    # 创建一个字典，用于存储元素及其索引位置
+    element_positions = defaultdict(list)
+
+    # 遍历列表，记录每个元素的索引
+    for index, value in enumerate(lst):
+        element_positions[value].append(index)
+
+    # 筛选出重复的元素及其索引位置
+    duplicates = {key: positions for key, positions in element_positions.items() if len(positions) > 1}
+
+    return duplicates
+
+def compare_model(path_before, path_after):
+        """比较两次学习后的模型参数是否一致"""
+        # 加载前后参数
+        params_before = torch.load(path_before)
+        params_after = torch.load(path_after)
+
+        # 比较每部分参数
+        for key in params_before.keys():
+            if key not in params_after:
+                print(f"{key} 不存在于 {path_after}")
+                continue
+
+            # 获取状态字典
+            state_before = params_before[key]
+            state_after = params_after[key]
+
+            # 遍历每个层的参数
+            for param_name in state_before:
+                if param_name not in state_after:
+                    print(f"参数 {param_name} 不存在于 {key} 的 {path_after}")
+                    continue
+
+                # 比较参数
+                param_diff = torch.isclose(
+                    state_before[param_name], state_after[param_name], atol=1e-6
+                )
+
+                if not param_diff.all():
+                    print(f"参数 {param_name} 在 {key} 中发生了变化")
+                    return False  # 参数不同
+
+        print("两次模型参数完全一致")
+        return True  # 参数一致

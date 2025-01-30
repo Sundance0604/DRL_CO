@@ -137,7 +137,10 @@ class CityGraph:
         i = 0
         
         for order in orders:
-            _,path_node = self.get_intercity_path(*order.virtual_route())
+            try:
+                _,path_node = self.get_intercity_path(*order.virtual_route())
+            except:
+                print(order, order.virtual_route())
             if i == 0:
                 max_node = path_node
                 max_order = order

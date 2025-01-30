@@ -114,7 +114,10 @@ class Lower_Layer:
             for order1, order2 in combinations(city.virtual_departure.values(), 2):
                 _,path_order1 = self.city_graph.get_intercity_path(*order1.virtual_route())
                 # 需要详细的分情况解决
-                _,path_order2 = self.city_graph.get_intercity_path(*order2.virtual_route())
+                try:
+                    _,path_order2 = self.city_graph.get_intercity_path(*order2.virtual_route())
+                except:
+                    print(order2.virtual_route(),order2)
                 if str(path_order1) not in str(path_order2) and str(path_order2) not in str(path_order1):
                     self.model.addConstrs(
                         (self.X_Order[order1.id, vehicle.id] + self.X_Order[order1.id, vehicle.id] <= 1

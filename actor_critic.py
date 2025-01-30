@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 import rl_utils
+import os
 
 class PolicyNet(torch.nn.Module):
     def __init__(self, state_dim, hidden_dim, action_dim):
@@ -99,7 +100,12 @@ class ActorCritic:
         action_probs = probs.view(self.num_order, self.num_city)  # 转换为 [订单数，城市数] 的概率矩阵
 
         # 使用 softmax 确保每个订单的选择是概率分布
-        action_probs = F.softmax(action_probs, dim=-1)  # 对最后一维进行softmax，确保每个订单的概率和为1
+
+        # action_probs = F.softmax(action_probs, dim=-1)
+        # 使之更为随机
+        temperature = 0.5  # 0.5 表示增加探索性；越小越大胆
+        action_probs = F.softmax(action_probs / temperature, dim=-1)  
+        # 对最后一维进行softmax，确保每个订单的概率和为1
 
         # 对每个订单选择一个城市
         selected_action = torch.multinomial(action_probs, 1)  # 基于概率分布选择城市
@@ -110,63 +116,6 @@ class ActorCritic:
 
         return action_matrix  # 返回动作矩阵
 
-
-
-    # 这是我的
-    def my_update(self, vehicle_states, order_states, reward, next_vehicle_states, 
-           next_order_states, done, action):
-        
-    
-        vehicle_encoded = self.vehicle_encoder(torch.tensor(vehicle_states, dtype=torch.float).to(self.device))
-        order_encoded = self.order_encoder(torch.tensor(order_states, dtype=torch.float).to(self.device))
-        # 确保订单编码后的形状是 [num_orders, order_state_dim]
-        order_encoded = order_encoded.view(self.num_order, -1)
-
-        vehicle_encoded = vehicle_encoded.view(-1)
-        order_encoded = order_encoded.view(-1)
-
-        # 订单编码是 [num_orders, order_state_dim]
-        combined_state = torch.cat([vehicle_encoded.flatten(), order_encoded.flatten()], dim=0)
-        # 添加 batch 维度
-        combined_state = combined_state.unsqueeze(0)  # 形状为 [1, combined_state_length]
-
-        next_vehicle_encoded = self.vehicle_encoder(torch.tensor(next_vehicle_states, dtype=torch.float).to(self.device))
-        next_order_encoded = self.order_encoder(torch.tensor(next_order_states, dtype=torch.float).to(self.device))
-        next_order_encoded = next_order_encoded.view(self.num_order, -1)
-
-        next_vehicle_encoded = next_vehicle_encoded.view(-1)
-        next_order_encoded = next_order_encoded.view(-1)
-
-        next_combined_state = torch.cat([next_vehicle_encoded.flatten(), next_order_encoded.flatten()],dim = 0)
-        next_combined_state = next_combined_state.unsqueeze(0)
-
-        # 计算价值
-        value = self.critic(combined_state)
-        next_value = self.critic(next_combined_state)
-
-        # TD目标和优势
-        td_target = reward + self.gamma * next_value * (1 - done)
-        advantage = td_target - value
-
-        # 更新策略网络
-        action_probs = self.actor(combined_state)
-        action_dist = torch.distributions.Categorical(action_probs)
-        log_prob = action_dist.log_prob(torch.tensor(action).to(self.device))
-        actor_loss = -log_prob * advantage.detach()
-
-        # 更新价值网络
-        critic_loss = F.mse_loss(value, td_target.detach())
-        # print(critic_loss)
-        # 反向传播
-        self.actor_optimizer.zero_grad()
-        actor_loss.sum().backward()
-        self.actor_optimizer.step()
-
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        self.critic_optimizer.step()
-
-    # 这是含有gpt的调试
     def update(self, vehicle_states, order_states, reward, next_vehicle_states, 
            next_order_states, done, action):
         # 将输入数据转换为浮动类型并移到设备上
@@ -232,10 +181,7 @@ class ActorCritic:
         # 更新价值网络
         critic_loss = F.mse_loss(value, td_target.detach())
 
-        #print(f"critic_loss: {critic_loss}")  # 打印价值网络的损失
-
-        
-        
+        #print(f"critic_loss: {critic_loss}")  # 打印价值网络的损失        
         # 反向传播
         self.actor_optimizer.zero_grad()
         actor_loss.sum().backward(retain_graph=True)  # 确保 actor_loss 是标量
@@ -245,7 +191,9 @@ class ActorCritic:
         critic_loss.backward(retain_graph=True)
         self.critic_optimizer.step()
          # 在每次更新后，检查参数的梯度
+         
         """
+        
         for name, param in self.critic.named_parameters():
             if param.grad is not None:
                 print(f"{name} grad max: {param.grad.max()}, grad min: {param.grad.min()}")
@@ -254,5 +202,33 @@ class ActorCritic:
             if param.grad is not None:
                 print(f"{name} grad max: {param.grad.max()}, grad min: {param.grad.min()}")
         """
-        
+    def save_model(self, path):
+        """保存模型参数"""
+        torch.save({
+            'vehicle_encoder': self.vehicle_encoder.state_dict(),
+            'order_encoder': self.order_encoder.state_dict(),
+            'actor': self.actor.state_dict(),
+            'critic': self.critic.state_dict(),
+            'actor_optimizer': self.actor_optimizer.state_dict(),
+            'critic_optimizer': self.critic_optimizer.state_dict(),
+            'encoder_optimizer': self.encoder_optimizer.state_dict()
+        }, path)
+        print(f"模型参数已保存至 {path}")
+
+    def load_model(self, path):
+        """加载模型参数"""
+        if os.path.exists(path):
+            checkpoint = torch.load(path, map_location=self.device)
+            self.vehicle_encoder.load_state_dict(checkpoint['vehicle_encoder'])
+            self.order_encoder.load_state_dict(checkpoint['order_encoder'])
+            self.actor.load_state_dict(checkpoint['actor'])
+            self.critic.load_state_dict(checkpoint['critic'])
+            self.actor_optimizer.load_state_dict(checkpoint['actor_optimizer'])
+            self.critic_optimizer.load_state_dict(checkpoint['critic_optimizer'])
+            self.encoder_optimizer.load_state_dict(checkpoint['encoder_optimizer'])
+            print(f"模型参数已从 {path} 加载")
+        else:
+            print(f"路径 {path} 不存在，无法加载模型参数")
+    
+    
         
