@@ -60,6 +60,81 @@ class DispatchEnv(gym.Env):
         print(self.orders)
         print(self.time)
 
+    def _multiagent_step(self, action, orders_unmatched:dict):
+        """执行动作并返回结果"""
+        """action是一个len(self.orders) * len(self.cities)维度的数组"""
+        """一刀-wrong_punlishment"""
+        correct_combinations = []
+        wrong_punlishment = 10
+        reward = 0
+        for i in range(len(orders_unmatched)):
+            
+            matched_amount = sum(action[i])
+            # if orders_unmatched[i].matched:
+            
+            #    continue
+            if matched_amount > 1:
+                reward += -wrong_punlishment
+                continue
+            # if matched_amount == 1:
+                if orders_unmatched[i].start_time > self.time:
+                    # correct_combinations.extend([(i, j) for j in range(len(self.cities))])
+                    # reward += -wrong_punlishment
+                    # 貌似无需惩罚
+                    continue
+            # if matched_amount == 0:
+                # correct_combinations.extend([(i, j) for j in range(len(self.cities))])
+                # 我的想法是无需添加
+                # correct_combinations.append((i, j for j in range(len(self.cities))))
+                continue
+            for j in range(len(self.cities)):
+                # 已匹配者不可匹配
+                if orders_unmatched[i].destination == j and action[i][j] == 1:
+                    continue
+                if orders_unmatched[i].matched and action[i][j] == 1:
+                    continue  # 继续下一个组合，跳过惩罚
+
+                # if self.orders[i].matched is False:
+                _, path_order = self.G.get_intercity_path(*orders_unmatched[i].route())
+                
+                # 前驱不可行
+                if j == path_order[1] and action[i][j] == 1:
+                    continue  # 继续下一个组合，跳过惩罚
+                # 需在邻接城市里
+                if j not in self.G.get_neighbors(orders_unmatched[i].departure) and action[i][j] == 1:
+                    continue  # 继续下一个组合，跳过惩罚
+
+                # 邻接城市需要有合适的车
+                vehicle_found = False
+                # 起码要有车
+                if orders_unmatched[j].vehicle_available.values():
+
+                    for vehicle in self.cities[j].vehicle_available.values():
+                        if len(vehicle.longest_path) > 0:
+                            if vehicle.longest_path[0] == path_order[1] and action[i][j] == 1:
+                                if self.capacity - vehicle.get_capacity > orders_unmatched[i].values().passenger:
+                                    vehicle_found = True
+                                    break
+                    
+                    if not vehicle_found:
+                        continue  # 继续下一个组合，跳过惩罚
+                else:
+                    continue
+                # 如果没有触发任何惩罚条件，则是正确的组合
+                correct_combinations.append((i, j))
+
+        for i in range(len(self.orders)):
+            for j in range(len(self.cities)):
+                if (i,j) not in correct_combinations:
+                    reward = reward - orders_unmatched[i].revenue
+                else:
+                   
+                    if self.time == orders_unmatched[i].start_time:
+                        orders_unmatched[i].virtual_departure = j
+                    
+                    
+        return reward  # 记住还需调用gurobi求解合理匹配下的值
+    
     def step(self, action):
         """执行动作并返回结果"""
         """action是一个len(self.orders) * len(self.cities)维度的数组"""
@@ -70,6 +145,7 @@ class DispatchEnv(gym.Env):
         for i in range(len(self.orders)):
             
             matched_amount = sum(action[i])
+           
             if self.orders[i].matched:
                 # correct_combinations.extend([(i, j) for j in range(len(self.cities))])
                 continue
@@ -134,6 +210,46 @@ class DispatchEnv(gym.Env):
                     
                     
         return reward  # 记住还需调用gurobi求解合理匹配下的值
+    
+    def test_step(self, orders_unmatched, actions):
+        reward = 0
+        i= 0 
+        for order in orders_unmatched.values():
+            _, path_order = self.G.get_intercity_path(*order.route())
+           
+            if order.destination == actions[i]:
+                reward += -100
+                order.virtual_departure =  order.departure
+            elif actions[i] not in self.G.get_neighbors(order.departure):
+                reward += -100
+                order.virtual_departure =  order.departure
+            elif actions[i] == path_order[1]:
+                reward += -100
+                order.virtual_departure =  order.departure
+            else:
+                order.virtual_departure = actions[i]
+            i += 1
+        return reward
+    
+    def dynamic_step(self, total_orders, actions, mask):
+        reward = 0
+        i = 0
+        for i, order in enumerate(total_orders.values()):
+            if mask[0,1] == True:
+                _, path_order = self.G.get_intercity_path(*order.route())
+                if order.destination == actions[i]:
+                    reward += -100
+                    order.virtual_departure =  order.departure
+                elif actions[i] not in self.G.get_neighbors(order.departure):
+                    reward += -100
+                    order.virtual_departure =  order.departure
+                elif actions[i] == path_order[1]:
+                    reward += -100
+                    order.virtual_departure =  order.departure
+                else:
+                    order.virtual_departure = actions[i]
+                i += 1
+        return reward
         
         
         
