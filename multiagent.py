@@ -139,6 +139,7 @@ class MultiAgentAC:
         dones = torch.tensor(dones, dtype=torch.float).to(self.device)
 
         # 计算 Critic 损失
+        """
         current_global = self.get_global_state(v_states, o_states)
         next_global = self.get_global_state(next_v_states, next_o_states)
         current_v = self.critic(current_global)
@@ -171,6 +172,47 @@ class MultiAgentAC:
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         self.optimizer.step()
+        """
+
+        # 编码状态
+        v_encoded = self.vehicle_encoder(v_states)
+        o_encoded = self.order_encoder(o_states)
+
+        # 获取全局状态
+        global_vehicle = torch.mean(v_encoded, dim=0, keepdim=True).repeat(o_encoded.shape[0], 1)
+        current_global = torch.cat([global_vehicle, o_encoded], dim=1)
+
+        next_v_encoded = self.vehicle_encoder(next_v_states)
+        next_o_encoded = self.order_encoder(next_o_states)
+        next_global_vehicle = torch.mean(next_v_encoded, dim=0, keepdim=True).repeat(next_o_encoded.shape[0], 1)
+        next_global = torch.cat([next_global_vehicle, next_o_encoded], dim=1)
+
+        # 计算 Critic 损失
+        current_v = self.critic(current_global)
+        next_v = self.critic(next_global)
+        td_target = rewards + 0.95 * next_v * (1 - dones)
+        critic_loss = F.mse_loss(current_v, td_target.detach())
+
+        # 计算 Actor 损失
+        logits = self.actor(current_global)
+        log_probs = F.log_softmax(logits, dim=-1)
+        selected_log_probs = log_probs.gather(1, actions.view(-1, 1)).squeeze()
+
+        # 熵正则化
+        probs = F.softmax(logits, dim=-1)
+        entropy = -torch.sum(probs * log_probs, dim=-1).mean()
+
+        advantage = (td_target - current_v).detach()
+        actor_loss = -(selected_log_probs * advantage).mean() - 0.01 * entropy
+
+        # 反向传播
+        total_loss = actor_loss + critic_loss
+        self.optimizer.zero_grad()
+        total_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
+        self.optimizer.step()
+        
+"""
 
 class DynamicOrderEncoder(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim):
@@ -211,7 +253,7 @@ class DynamicMultiAgentAC:
         self.batch_size = 64
 
     def take_action(self, vehicle_states, order_states, order_lengths, explore=True):
-        """ 处理动态订单数目，生成动作 """
+        # 处理动态订单数目，生成动作 
         v_tensor = torch.FloatTensor(vehicle_states).to(self.device)
         o_tensor = torch.FloatTensor(order_states).to(self.device)
 
@@ -234,7 +276,7 @@ class DynamicMultiAgentAC:
 
     def update(self, vehicle_states, order_states, order_lengths, actions, rewards, 
                next_vehicle_states, next_order_states, next_order_lengths, dones=True):
-        """ A2C 更新 """
+        # A2C 更新 
         if len(self.buffer) < self.batch_size:
             return
         
@@ -284,3 +326,4 @@ class DynamicMultiAgentAC:
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         self.optimizer.step()
+"""
