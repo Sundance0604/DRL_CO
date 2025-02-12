@@ -216,13 +216,15 @@ class DispatchEnv(gym.Env):
         i= 0 
         for order in orders_unmatched.values():
             _, path_order = self.G.get_intercity_path(*order.route())
-           
+            # 表示不可目的地
             if order.destination == actions[i]:
                 reward += -100
                 order.virtual_departure =  order.departure
+            # 表示不可非邻接
             elif actions[i] not in self.G.get_neighbors(order.departure):
                 reward += -100
                 order.virtual_departure =  order.departure
+            # 表示不可在前驱
             elif actions[i] == path_order[1]:
                 reward += -100
                 order.virtual_departure =  order.departure
@@ -232,7 +234,7 @@ class DispatchEnv(gym.Env):
         return reward
     
     def dynamic_step(self, total_orders, actions, mask):
-        reward = 0
+        reward = 1000
         i = 0
         for i, order in enumerate(total_orders.values()):
             if mask[0,1] == True:
@@ -250,6 +252,22 @@ class DispatchEnv(gym.Env):
                     order.virtual_departure = actions[i]
                 i += 1
         return reward
+    
+    def get_mask(self, orders_unmatched):
+        
+        i= 0 
+        mask = np.ones((len(orders_unmatched), len(self.cities)))
+        for order in orders_unmatched.values():
+            _, path_order = self.G.get_intercity_path(*order.route())
+            for j in range(len(self.cities)):
+                if order.destination == j:
+                    mask[i][j] = 0
+                elif j not in self.G.get_neighbors(order.departure):
+                    mask[i][j] = 0
+                elif j == path_order[1]:
+                    mask[i][j] = 0
+            i += 1
+        return mask
         
         
         
