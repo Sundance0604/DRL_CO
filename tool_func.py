@@ -246,3 +246,32 @@ def compare_model(path_before, path_after):
 
         print("两次模型参数完全一致")
         return True  # 参数一致
+
+def order_same_action(Total_order:dict, num_city, G:CityGraph):
+    order_with_same_action = {}
+    for order in Total_order.values():
+        feasible_key = str(order_feasible_action(order, num_city, G))
+        if order_with_same_action:
+            if feasible_key in order_with_same_action:
+                order_with_same_action[feasible_key].append(order)
+            else:
+                order_with_same_action[feasible_key] = [order]
+        else:
+            order_with_same_action[feasible_key] = [order]
+    return order_with_same_action
+
+def order_feasible_action(order, num_city, G:CityGraph):
+    feasible_action = []
+    j = 0
+    _, path_order = G.get_intercity_path(*order.route())
+    for j in range(num_city):
+        if order.destination == j:
+            continue
+        elif j not in G.get_neighbors(order.departure):
+            continue
+        elif j == path_order[1]:
+            continue
+        feasible_action.append(j)
+        j = j + 1
+    return feasible_action
+    

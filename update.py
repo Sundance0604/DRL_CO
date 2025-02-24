@@ -66,18 +66,7 @@ def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict
                 
                 order_temp.match_vehicle(vehicle_temp.id)
                 # 只有当车辆ID不在changed_vehicle中时，才会执行以下操作
-                """
-                if vehicle_temp.id not in changed_vehicle:
-                    
-                    if order_temp.virtual_departure != order_temp.departure:
-                        vehicle_temp.move_to_city(order_temp.departure)
-                    else:
-                        _, path = temp_Lower_Layer.city_graph.get_intercity_path(*order_temp.route())
-                        
-                        vehicle_temp.move_to_city(path[1])
-                        
-                changed_vehicle.append(vehicle_temp.id)
-                """
+             
         i+=1
     if delet_list:
         for order_id in delet_list:

@@ -91,34 +91,6 @@ class MultiAgentAC(torch.nn.Module):
         self.batch_size = 64
    
     
-    def take_action(self, vehicle_states, order_states, explore=True, greedy=False):
-        """为当前活跃订单生成动作 ⭐"""
-        v_tensor = torch.FloatTensor(vehicle_states).to(self.device)
-        o_tensor = torch.FloatTensor(order_states).to(self.device)
-        v_encoded = self.vehicle_encoder(v_tensor)
-        o_encoded = self.order_encoder(o_tensor)
-
-        # 全局车辆特征
-        global_vehicle = torch.mean(v_encoded, dim=0)
-        repeated_global = global_vehicle.repeat(o_encoded.size(0), 1)
-
-        # 拼接每个订单的输入
-        actor_input = torch.cat([repeated_global, o_encoded], dim=1)
-        logits = self.actor(actor_input)
-
-        # 计算动作概率
-        probs = F.softmax(logits / (0.5 if explore else 1.0), dim=-1)
-
-        if greedy:
-            # 选择概率最大的动作
-            actions = torch.argmax(probs, dim=-1).tolist()
-        else:
-            # 按概率采样动作
-            torch.manual_seed(114514)
-            actions = [torch.multinomial(p, 1).item() for p in probs]
-
-        return actions
-    
     def take_action_mask(self, vehicle_states, order_states, mask,explore=True, greedy=False):
         """为当前活跃订单生成动作 ⭐"""
         mask = torch.from_numpy(mask).to(self.device)
@@ -145,8 +117,8 @@ class MultiAgentAC(torch.nn.Module):
             # mask 为 [num_order, num_city]，1 表示允许，0 表示不允许
             logits = logits.masked_fill(mask == 0, float('-inf'))
         
-        # 根据是否探索选择温度参数
-        temperature = 0.5 if explore else 1.0
+        # 根据是否探索选择温度参数,这里也改一下
+        temperature = 1 if explore else 0.5
         # 计算 softmax 概率，注意温度参数的使用
         probs = F.softmax(logits / temperature, dim=-1)
 
@@ -160,6 +132,169 @@ class MultiAgentAC(torch.nn.Module):
             actions = [torch.multinomial(p, 1).item() for p in probs]
 
         return actions
+    
+    def take_action_mask_special(self, vehicle_states, order_states, mask,explore=True, greedy=False):
+        """为当前活跃订单生成动作 ⭐"""
+        mask = torch.from_numpy(mask).to(self.device)
+        # 将状态转换为 tensor，并放到相应设备上
+        v_tensor = torch.FloatTensor(vehicle_states).to(self.device)
+        o_tensor = torch.FloatTensor(order_states).to(self.device)
+        if torch.isnan(v_tensor).any():
+            print("v_encoded 出现 NaN，输入状态可能异常！")
+        # 分别编码车辆和订单的状态
+        v_encoded = self.vehicle_encoder(v_tensor)
+        o_encoded = self.order_encoder(o_tensor)
+        if torch.isnan(v_encoded).any():
+            print("v_encoded 出现 NaN，输入状态可能异常！")
+        if torch.isnan(o_encoded).any():
+            print("o_encoded 出现 NaN，输入状态可能异常！")
+        # 计算全局车辆特征
+        global_vehicle = torch.mean(v_encoded, dim=0)
+        repeated_global = global_vehicle.repeat(o_encoded.size(0), 1)
+       
+        # 拼接每个订单的输入
+        actor_input = torch.cat([repeated_global, o_encoded], dim=1)
+        if torch.isnan(actor_input).any():
+            print("actor_input 出现 NaN，输入状态可能异常！")
+            if torch.isnan(global_vehicle).any():
+                print("global vehicle 出现 NaN，输入状态可能异常！")
+            if torch.isnan(repeated_global).any():
+                print("repeated global 出现 NaN，输入状态可能异常！")
+        # 计算原始 logits，其形状应为 [num_order, num_city]
+        origin_logits = self.actor(actor_input)
+        
+        # 利用 mask 屏蔽不允许的动作，将 mask 为 0 的位置设为负无穷
+        if mask is not None:
+            # mask 为 [num_order, num_city]，1 表示允许，0 表示不允许
+            logits = origin_logits.masked_fill(mask == 0, float('-inf'))
+        
+        # 根据是否探索选择温度参数
+        temperature = 0.5 if explore else 1.0
+        # 计算 softmax 概率，注意温度参数的使用
+        probs = F.softmax(logits / temperature, dim=-1)
+
+        # 根据是否使用贪婪策略选择动作
+        if greedy:
+            # 选择概率最大的动作
+            actions = torch.argmax(probs, dim=-1).tolist()
+        else:
+            # 按照概率采样动作
+            try:
+                torch.manual_seed(114514)
+                actions = [torch.multinomial(p, 1).item() for p in probs]
+            except:
+                print(probs)
+                if torch.isnan(logits).any():
+                    print("logits 出现 NaN，输入状态可能异常！")
+                if (mask.sum(dim=-1) == 0).any():
+                    print("mask 全 0，导致 softmax 计算无意义！")
+
+        return actions , origin_logits
+    
+    def take_action_third(self, vehicle_states, order_states, mask,explore=True, greedy=False):
+        """为当前活跃订单生成动作 ⭐"""
+        eplison = 0.00001
+        mask = torch.from_numpy(mask).to(self.device)
+        # 将状态转换为 tensor，并放到相应设备上
+        v_tensor = torch.FloatTensor(vehicle_states).to(self.device)
+        o_tensor = torch.FloatTensor(order_states).to(self.device)
+        
+        # 分别编码车辆和订单的状态
+        v_encoded = self.vehicle_encoder(v_tensor)
+        o_encoded = self.order_encoder(o_tensor)
+
+        # 计算全局车辆特征
+        global_vehicle = torch.mean(v_encoded, dim=0)
+        repeated_global = global_vehicle.repeat(o_encoded.size(0), 1)
+
+        # 拼接每个订单的输入
+        actor_input = torch.cat([repeated_global, o_encoded], dim=1)
+        
+        # 计算原始 logits，其形状应为 [num_order, num_city]
+        logits = self.actor(actor_input)
+
+        # 利用 mask 屏蔽不允许的动作，将 mask 为 0 的位置设为负无穷
+        if mask is not None:
+            # mask 为 [num_order, num_city]，1 表示允许，0 表示不允许
+            logits = logits.masked_fill(mask == 0, float('-inf'))
+        
+        # 根据是否探索选择温度参数,这里也改一下
+        temperature = 1 if explore else 0.5
+        # 计算 softmax 概率，注意温度参数的使用
+        probs = F.softmax(logits / temperature, dim=-1)
+
+        # 根据是否使用贪婪策略选择动作
+        if greedy:
+            # 选择概率最大的动作
+            actions = torch.argmax(probs, dim=-1).tolist()
+        else:
+            # 按照概率采样动作
+            torch.manual_seed(114514)
+            actions = [torch.multinomial(p, 1).item() for p in probs]
+
+        log_probs = F.log_softmax(logits / temperature, dim=-1)
+        actions_tensor = torch.tensor(actions, dtype=torch.long).to(self.device)       
+        selected_log_probs = log_probs.gather(1, actions_tensor.view(-1, 1)).squeeze()
+        
+        # 防止inf 和 0导致的异常
+        probs = torch.nan_to_num(probs, nan= eplison, posinf=0.0, neginf=0.0)
+        selected_log_probs = torch.nan_to_num(selected_log_probs, nan= eplison, posinf=0.0, neginf=0.0)
+        log_probs = torch.nan_to_num(log_probs, nan= eplison, posinf=0.0, neginf=0.0)
+        # 返回动作以及对应的 log 概率
+        return actions, selected_log_probs ,log_probs, probs
+    
+    def update_third(self, vehicle_states, order_states, actions, selected_log_probs,log_probs, probs,rewards, 
+           next_vehicle_states, next_order_states, dones):
+
+        v_states = torch.tensor(vehicle_states, dtype=torch.float).to(self.device)
+        o_states = torch.tensor(order_states, dtype=torch.float).to(self.device)
+        actions = torch.tensor(actions, dtype=torch.long).to(self.device)
+        rewards = torch.tensor(rewards, dtype=torch.float).to(self.device)
+        next_v_states = torch.tensor(next_vehicle_states, dtype=torch.float).to(self.device)
+        next_o_states = torch.tensor(next_order_states, dtype=torch.float).to(self.device)
+        dones = torch.tensor(dones, dtype=torch.float).to(self.device)
+
+        # 计算 Critic 损失
+        
+        current_global = self._get_global_state(v_states, o_states)
+        next_global = self._get_global_state(next_v_states, next_o_states)
+        current_v = self.critic(current_global)
+        next_v = self.critic(next_global)
+        td_target = rewards + 0.95 * next_v * (1 - dones)
+        critic_loss = F.mse_loss(current_v, td_target.detach())
+
+        entropy = -torch.sum(probs * log_probs, dim=-1).mean()
+        # 不再是num_orders这一固定的
+        advantage = (td_target - current_v).detach().repeat_interleave(len(order_states))
+        actor_loss = -(selected_log_probs * advantage).mean() - 0.01 * entropy
+
+        # 合并损失
+        total_loss = actor_loss + critic_loss
+
+        # 反向传播
+        self.optimizer.zero_grad()
+        total_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
+        # 也对critic进行梯度裁剪,这是修改处
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
+        self.optimizer.step()
+        
+    
+
+        
+    def _get_global_state(self, v_states, o_states):
+        """获取Critic的全局状态表征（无掩码）"""
+        
+        v_tensor = torch.FloatTensor(v_states).to(self.device)
+        v_encoded = self.vehicle_encoder(v_tensor)
+        global_vehicle = torch.mean(v_encoded, dim=0)
+        
+        # 订单全局特征
+        o_tensor = torch.FloatTensor(o_states).to(self.device)
+        o_encoded = self.order_encoder(o_tensor)
+        global_order = torch.mean(o_encoded, dim=0)
+        
+        return torch.cat([global_vehicle, global_order])
     
     def update(self, vehicle_states, order_states, actions, rewards, 
            next_vehicle_states, next_order_states, dones):
@@ -192,7 +327,7 @@ class MultiAgentAC(torch.nn.Module):
         logits = self.actor(actor_input.view(-1, 256))
         log_probs = F.log_softmax(logits, dim=-1)
         selected_log_probs = log_probs.gather(1, actions.view(-1, 1)).squeeze()
-
+        
         # 熵正则化
         probs = F.softmax(logits, dim=-1)
         entropy = -torch.sum(probs * log_probs, dim=-1).mean()
@@ -207,22 +342,8 @@ class MultiAgentAC(torch.nn.Module):
         self.optimizer.zero_grad()
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
+        # 也对critic进行梯度裁剪,这是修改处
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.optimizer.step()
-        
-
-        
-    def _get_global_state(self, v_states, o_states):
-        """获取Critic的全局状态表征（无掩码）"""
-        
-        v_tensor = torch.FloatTensor(v_states).to(self.device)
-        v_encoded = self.vehicle_encoder(v_tensor)
-        global_vehicle = torch.mean(v_encoded, dim=0)
-        
-        # 订单全局特征
-        o_tensor = torch.FloatTensor(o_states).to(self.device)
-        o_encoded = self.order_encoder(o_tensor)
-        global_order = torch.mean(o_encoded, dim=0)
-        
-        return torch.cat([global_vehicle, global_order])
 
  
