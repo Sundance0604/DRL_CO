@@ -63,7 +63,8 @@ class VehicleEncoder(torch.nn.Module):
 class MultiAgentAC(torch.nn.Module):
     def __init__(self, device, VEHICLE_STATE_DIM, 
                  ORDER_STATE_DIM, NUM_CITIES, 
-                 HIDDEN_DIM, STATE_DIM):
+                 HIDDEN_DIM, STATE_DIM,
+                 action_key):
         super(MultiAgentAC, self).__init__()
         self.device = device
         self.NUM_CITIES = NUM_CITIES
@@ -89,7 +90,13 @@ class MultiAgentAC(torch.nn.Module):
         self.next_order_id = 0        # 订单ID生成器
         self.buffer = deque(maxlen=10000)
         self.batch_size = 64
-   
+        self.active = False
+        self.current_order = []
+        self.last_order = []
+        self.reward = 0
+        self.action_key = action_key
+        self.action = []
+        self.v_states = np.array([])
     
     def take_action_mask(self, vehicle_states, order_states, mask,explore=True, greedy=False):
         """为当前活跃订单生成动作 ⭐"""
@@ -133,63 +140,7 @@ class MultiAgentAC(torch.nn.Module):
 
         return actions
     
-    def take_action_mask_special(self, vehicle_states, order_states, mask,explore=True, greedy=False):
-        """为当前活跃订单生成动作 ⭐"""
-        mask = torch.from_numpy(mask).to(self.device)
-        # 将状态转换为 tensor，并放到相应设备上
-        v_tensor = torch.FloatTensor(vehicle_states).to(self.device)
-        o_tensor = torch.FloatTensor(order_states).to(self.device)
-        if torch.isnan(v_tensor).any():
-            print("v_encoded 出现 NaN，输入状态可能异常！")
-        # 分别编码车辆和订单的状态
-        v_encoded = self.vehicle_encoder(v_tensor)
-        o_encoded = self.order_encoder(o_tensor)
-        if torch.isnan(v_encoded).any():
-            print("v_encoded 出现 NaN，输入状态可能异常！")
-        if torch.isnan(o_encoded).any():
-            print("o_encoded 出现 NaN，输入状态可能异常！")
-        # 计算全局车辆特征
-        global_vehicle = torch.mean(v_encoded, dim=0)
-        repeated_global = global_vehicle.repeat(o_encoded.size(0), 1)
-       
-        # 拼接每个订单的输入
-        actor_input = torch.cat([repeated_global, o_encoded], dim=1)
-        if torch.isnan(actor_input).any():
-            print("actor_input 出现 NaN，输入状态可能异常！")
-            if torch.isnan(global_vehicle).any():
-                print("global vehicle 出现 NaN，输入状态可能异常！")
-            if torch.isnan(repeated_global).any():
-                print("repeated global 出现 NaN，输入状态可能异常！")
-        # 计算原始 logits，其形状应为 [num_order, num_city]
-        origin_logits = self.actor(actor_input)
-        
-        # 利用 mask 屏蔽不允许的动作，将 mask 为 0 的位置设为负无穷
-        if mask is not None:
-            # mask 为 [num_order, num_city]，1 表示允许，0 表示不允许
-            logits = origin_logits.masked_fill(mask == 0, float('-inf'))
-        
-        # 根据是否探索选择温度参数
-        temperature = 0.5 if explore else 1.0
-        # 计算 softmax 概率，注意温度参数的使用
-        probs = F.softmax(logits / temperature, dim=-1)
-
-        # 根据是否使用贪婪策略选择动作
-        if greedy:
-            # 选择概率最大的动作
-            actions = torch.argmax(probs, dim=-1).tolist()
-        else:
-            # 按照概率采样动作
-            try:
-                torch.manual_seed(114514)
-                actions = [torch.multinomial(p, 1).item() for p in probs]
-            except:
-                print(probs)
-                if torch.isnan(logits).any():
-                    print("logits 出现 NaN，输入状态可能异常！")
-                if (mask.sum(dim=-1) == 0).any():
-                    print("mask 全 0，导致 softmax 计算无意义！")
-
-        return actions , origin_logits
+    
     
     def take_action_third(self, vehicle_states, order_states, mask,explore=True, greedy=False):
         """为当前活跃订单生成动作 ⭐"""
@@ -242,6 +193,47 @@ class MultiAgentAC(torch.nn.Module):
         log_probs = torch.nan_to_num(log_probs, nan= eplison, posinf=0.0, neginf=0.0)
         # 返回动作以及对应的 log 概率
         return actions, selected_log_probs ,log_probs, probs
+    
+    def take_action_skyrim(self, vehicle_states, order_states,explore=True, greedy=False):
+        """为当前活跃订单生成动作 ⭐"""
+     
+        
+        # 将状态转换为 tensor，并放到相应设备上
+        v_tensor = torch.FloatTensor(vehicle_states).to(self.device)
+        o_tensor = torch.FloatTensor(order_states).to(self.device)
+        
+        # 分别编码车辆和订单的状态
+        v_encoded = self.vehicle_encoder(v_tensor)
+        o_encoded = self.order_encoder(o_tensor)
+
+        # 计算全局车辆特征
+        global_vehicle = torch.mean(v_encoded, dim=0)
+        repeated_global = global_vehicle.repeat(o_encoded.size(0), 1)
+
+        # 拼接每个订单的输入
+        actor_input = torch.cat([repeated_global, o_encoded], dim=1)
+        
+        # 计算原始 logits，其形状应为 [num_order, num_city]
+        logits = self.actor(actor_input)
+
+        
+        # 根据是否探索选择温度参数,这里也改一下
+        temperature = 1 if explore else 0.5
+        # 计算 softmax 概率，注意温度参数的使用
+        probs = F.softmax(logits / temperature, dim=-1)
+
+        # 根据是否使用贪婪策略选择动作
+        if greedy:
+            # 选择概率最大的动作
+            actions = torch.argmax(probs, dim=-1).tolist()
+        else:
+            # 按照概率采样动作
+            torch.manual_seed(114514)
+            actions = [torch.multinomial(p, 1).item() for p in probs]
+
+        
+        # 返回动作
+        return actions 
     
     def update_third(self, vehicle_states, order_states, actions, selected_log_probs,log_probs, probs,rewards, 
            next_vehicle_states, next_order_states, dones):
@@ -340,7 +332,7 @@ class MultiAgentAC(torch.nn.Module):
 
         # 反向传播
         self.optimizer.zero_grad()
-        total_loss.backward()
+        total_loss.backward(retain_graph=True)
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         # 也对critic进行梯度裁剪,这是修改处
         torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)

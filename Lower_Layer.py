@@ -6,7 +6,6 @@ from ORDER import *
 from VEHICLE import *
 from tool_func import *
 from itertools import combinations
-import SETTING
 
 class Lower_Layer:
     """代码错了，约束越多越反动"""
@@ -49,6 +48,9 @@ class Lower_Layer:
         self.X_Order = self.model.addVars(self.num_order, self.num_vehicle, 
                                           vtype=GRB.BINARY, name="var_order")
 
+    def list_str(slef,my_list):
+        return str("".join(map(str, my_list)))
+    
     def get_decision(self):
         """返回车辆和订单的决策变量"""
         return self.X_Vehicle, self.X_Order
@@ -112,13 +114,8 @@ class Lower_Layer:
             HABCD
             """
             for order1, order2 in combinations(city.virtual_departure.values(), 2):
-                _,path_order1 = self.city_graph.get_intercity_path(*order1.virtual_route())
-                # 需要详细的分情况解决
-                try:
-                    _,path_order2 = self.city_graph.get_intercity_path(*order2.virtual_route())
-                except:
-                    print(order2.virtual_route(),order2)
-                if str(path_order1) not in str(path_order2) and str(path_order2) not in str(path_order1):
+                
+                if order1.path_key not in order2.path_key and order2.path_key not in order1.path_key:
                     self.model.addConstrs(
                         (self.X_Order[order1.id, vehicle.id] + self.X_Order[order1.id, vehicle.id] <= 1
                             for vehicle in city.vehicle_available.values()),
@@ -262,6 +259,8 @@ class Lower_Layer:
         self.model.setObjective(order_revenue - vehicle_cost - order_penalty, GRB.MAXIMIZE)
     def get_real_id(self):
         return self.real_id
+    
+    
     
     
 

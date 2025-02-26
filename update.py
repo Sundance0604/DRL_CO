@@ -7,7 +7,6 @@ from ORDER import *
 from VEHICLE import *
 from tool_func import *
 from Lower_Layer import *
-import SETTING
 import importlib
 import tool_func
 

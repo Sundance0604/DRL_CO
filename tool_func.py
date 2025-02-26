@@ -2,14 +2,15 @@ from ORDER import *
 from CITY_GRAPH import *
 from VEHICLE import *
 import numpy as np
-import SETTING
 from CITY_NODE import * 
 import os
 import Lower_Layer
 from collections import defaultdict
 import torch
+import copy
 
 per_distance_battery = 10
+# 目前这个函数没有用了
 def route_combine(lst, list1, list2):
     # 遍历所有可能的分割位置
     for i in range(1, len(lst)):  # i 是分割点
@@ -21,10 +22,7 @@ def route_combine(lst, list1, list2):
             return True
     return False
 
-def time_consume(order:Order,speed=1000):
-    return order.distance/speed
-def time_cost(u:int , v:int,G:CityGraph):
-    pass
+
 
 def vehicle_generator(num_vehicle:int, num_city:int):
     Vehicles = {}
@@ -62,10 +60,13 @@ def order_generator(num_order:int, time: int, num_city:int,CAPACITY,G:CityGraph,
         revenue = distance * 100 + passenger * 50 # 随便编
         penalty = passenger * 5 # 随便编
         least_time_consume = distance/speed
+        
         # 创建 Order 对象
         order = Order(id, passenger, departure, destination, start_time, 
                       end_time, virtual_departure, battery,distance,revenue,penalty,
                       least_time_consume)
+        # 创建路径字符串
+        order.path_key = list_str(order_feasible_action(order, num_city, G))
         
         Orders[id] = order
     return Orders 
@@ -166,25 +167,44 @@ def vectorization_vehicle(vehicles:Dict):
                     ],
                     dtype=np.int32)
     for vehicle in vehicles.values()])
-def vectorization_order(orders:Dict):
+def vectorization_order(orders):
+    if isinstance(orders, dict):
+        return np.vstack([
+        np.array([
+            order.passenger,
+            order.departure,
+            order.destination,
+            order.start_time,
+            order.end_time,
+            order.virtual_departure,
+            int(order.matched),  # 布尔值转为整数
+            order.battery,
+            order.distance,
+            order.revenue,
+            order.penalty,
+            order.least_time_consume
+        ], dtype=np.int32)  # 使用合适的 dtype
+        for order in orders.values()  # 假设 `orders` 是包含所有订单的字典
+        ])
+    if isinstance(orders, list):
+        return np.vstack([
+        np.array([
+            order.passenger,
+            order.departure,
+            order.destination,
+            order.start_time,
+            order.end_time,
+            order.virtual_departure,
+            int(order.matched),  # 布尔值转为整数
+            order.battery,
+            order.distance,
+            order.revenue,
+            order.penalty,
+            order.least_time_consume
+        ], dtype=np.int32)  # 使用合适的 dtype
+        for order in orders  # 假设 `orders` 是包含所有订单的列表
+        ])
 
-    return np.vstack([
-    np.array([
-        order.passenger,
-        order.departure,
-        order.destination,
-        order.start_time,
-        order.end_time,
-        order.virtual_departure,
-        int(order.matched),  # 布尔值转为整数
-        order.battery,
-        order.distance,
-        order.revenue,
-        order.penalty,
-        order.least_time_consume
-    ], dtype=np.int32)  # 使用合适的 dtype
-    for order in orders.values()  # 假设 `orders` 是包含所有订单的集合
-])
         
 def basic_cost(vehicles:dict, orders_unmatched:dict):
     vehicle_cost = 0
@@ -250,14 +270,14 @@ def compare_model(path_before, path_after):
 def order_same_action(Total_order:dict, num_city, G:CityGraph):
     order_with_same_action = {}
     for order in Total_order.values():
-        feasible_key = str(order_feasible_action(order, num_city, G))
+        
         if order_with_same_action:
-            if feasible_key in order_with_same_action:
-                order_with_same_action[feasible_key].append(order)
+            if order.path_key in order_with_same_action:
+                order_with_same_action[order.path_key].append(order)
             else:
-                order_with_same_action[feasible_key] = [order]
+                order_with_same_action[order.path_key] = [order]
         else:
-            order_with_same_action[feasible_key] = [order]
+            order_with_same_action[order.path_key] = [order]
     return order_with_same_action
 
 def order_feasible_action(order, num_city, G:CityGraph):
@@ -274,4 +294,27 @@ def order_feasible_action(order, num_city, G:CityGraph):
         feasible_action.append(j)
         j = j + 1
     return feasible_action
+
+def list_str(my_list):
+    return str("".join(map(str, my_list)))
+
+# 这个的作用是，判断是否有可行的订单，如果没有该agent当期不活跃
+
+
+def active_test(action_type, agent, orders_unmatched):
+    agent.active = False
+    agent.last_order = copy.deepcopy(agent.current_order)
+    agent.current_order = []
+    for order in orders_unmatched.values():
+        if order.path_key == action_type:
+            agent.active = True
+            agent.current_order.append(order)
+
+def get_multi_reward(agent):
+    agent.reward = 0
+    for order in agent.last_order:
+        if order.matched:
+            agent.reward += order.revenue + random.randint(0, 100)
+    
+        
     
