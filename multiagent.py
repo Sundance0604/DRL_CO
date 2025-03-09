@@ -76,7 +76,7 @@ class MultiAgentAC(nn.Module):
         self.buffer = ReplayBuffer(capacity=64)
         self.device = device
         self.NUM_CITIES = NUM_CITIES
-        self.batch_size = 16
+        self.batch_size = 32
         
         # 编码器
         self.vehicle_encoder = VehicleEncoder(VEHICLE_STATE_DIM, HIDDEN_DIM).to(device)
@@ -127,9 +127,12 @@ class MultiAgentAC(nn.Module):
         log_probs = torch.nan_to_num(log_probs, nan=epsilon, posinf=0.0, neginf=0.0)
         
         return actions, selected_log_probs, log_probs, probs
-
+    
+    
     def store_experience(self, vehicle_states, order_states, selected_log_probs, 
-                         log_probs, probs, rewards, next_vehicle_states, next_order_states):
+                        log_probs, probs, rewards, next_vehicle_states, next_order_states):
+        """存储经验，标准化奖励"""
+       
         if torch.is_tensor(selected_log_probs):
             selected_log_probs = selected_log_probs.cpu().tolist()
         if torch.is_tensor(log_probs):
@@ -137,23 +140,15 @@ class MultiAgentAC(nn.Module):
         if torch.is_tensor(probs):
             probs = probs.cpu().tolist()
         self.buffer.push(vehicle_states, order_states, selected_log_probs, 
-                         log_probs, probs, rewards, next_vehicle_states, next_order_states)
-
-    def _get_global_state(self, v_states, o_states):
-        v_tensor = torch.FloatTensor(v_states).to(self.device)
-        o_tensor = torch.FloatTensor(o_states).to(self.device)
-        v_encoded = self.vehicle_encoder(v_tensor)
-        o_encoded = self.order_encoder(o_tensor)
-        return torch.cat([v_encoded, o_encoded])
+                        log_probs, probs, rewards, next_vehicle_states, next_order_states)
 
     def update_third_buffer_rnn(self):
+        """更新函数，使用 Huber Loss 和 Advantage 标准化"""
         if len(self.buffer) < self.batch_size:
             return
         experiences = self.buffer.sample(self.batch_size)
         batch = Experience(*zip(*experiences))
         
-        
-  
         def pad_states(states_list):
             tensors = [torch.tensor(state, dtype=torch.float) for state in states_list]
             padded = pad_sequence(tensors, batch_first=True)
@@ -189,10 +184,9 @@ class MultiAgentAC(nn.Module):
                     for p in batch.probs]
         probs = torch.tensor(probs_padded, dtype=torch.float).to(self.device)
 
-        # GRU 编码
         def encode_states(states, lengths, encoder):
             packed = torch.nn.utils.rnn.pack_padded_sequence(states, lengths, batch_first=True, enforce_sorted=False)
-            encoded = encoder(packed)  # 直接接收单个张量
+            encoded = encoder(packed)
             return encoded
 
         v_encoded = encode_states(v_states, v_lengths, self.vehicle_encoder)
@@ -206,23 +200,15 @@ class MultiAgentAC(nn.Module):
         current_v = self.critic(v_encoded.mean(dim=0, keepdim=True))
         next_v = self.critic(next_v_encoded.mean(dim=0, keepdim=True))
         td_target = rewards + 0.95 * next_v
-        # critic_loss = F.mse_loss(current_v, td_target.detach())
-        # 对大误差更鲁棒
-        critic_loss = F.smooth_l1_loss(current_v, td_target.detach())
-        entropy = -torch.sum(probs * log_probs, dim=-1).mean()
-        advantage = (td_target - current_v).detach()
-        # 标准化advatage
-        advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-8)
-        # 增大熵系数
-        actor_loss = -(selected_log_probs.mean(dim=1) * advantage.squeeze()).mean() - 0.05 * entropy
+        critic_loss = F.smooth_l1_loss(current_v, td_target.detach())  # 用 Huber Loss
         
-
+        entropy = -torch.sum(probs * log_probs, dim=-1).mean()  # 用 masked_log_probs 计算熵
+        advantage = (td_target - current_v).detach()
+        advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-8)  # 标准化 Advantage
+        actor_loss = -(selected_log_probs.mean(dim=1) * advantage.squeeze()).mean() - 0.05 * entropy  # 增大熵系数
+        
         total_loss = actor_loss + critic_loss
-        """
-        print(f"Rewards: {rewards.mean().item()}, Current_v: {current_v.item()}, Next_v: {next_v.item()}")
-        print(f"Advantage mean: {advantage.mean().item()}, std: {advantage.std().item()}")
-        print(f"Actor loss: {actor_loss.item()}, Critic loss: {critic_loss.item()}, Total loss: {total_loss.item()}")
-        """
+        
         self.optimizer.zero_grad()
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.vehicle_encoder.parameters(), 0.5)

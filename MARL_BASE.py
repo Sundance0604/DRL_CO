@@ -121,6 +121,9 @@ class MultiAgentAC(torch.nn.Module):
         self.action_key = ''
         self.action = []
         self.v_states = np.array([])
+
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)  # actor_lr 是 actor 的学习率
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr)  # critic_lr 是 critic 的学习率
     
     def take_action_mask(self, vehicle_states, order_states, mask,explore=True, greedy=False):
         """为当前活跃订单生成动作 ⭐"""
@@ -218,6 +221,59 @@ class MultiAgentAC(torch.nn.Module):
         # 返回动作以及对应的 log 概率
         return actions, selected_log_probs ,log_probs, probs
     
+    # 改变vehicle_states,不再是平均值，而是其他办法
+    def take_action_vehicle(self, vehicle_states, order_states, mask,explore=True, greedy=False):
+        """为当前活跃订单生成动作 ⭐"""
+        eplison = 0.00001
+        mask = torch.from_numpy(mask).to(self.device)
+        # 将状态转换为 tensor，并放到相应设备上
+        v_tensor = torch.FloatTensor(vehicle_states).to(self.device)
+        o_tensor = torch.FloatTensor(order_states).to(self.device)
+        
+        # 分别编码车辆和订单的状态
+        v_encoded = v_tensor
+        o_encoded = o_tensor
+
+        # 定义一个简单的注意力层
+        attention = torch.nn.Linear(v_encoded.size(1), 1)  # 输入特征维度到1维
+        attn_weights = torch.softmax(attention(v_encoded), dim=0)  # 计算注意力权重
+        global_vehicle = torch.sum(attn_weights * v_encoded, dim=0)  # 加权和
+        repeated_global = global_vehicle.repeat(o_encoded.size(0), 1)
+        actor_input = torch.cat([repeated_global, o_encoded], dim=1)
+       
+        
+        # 计算原始 logits，其形状应为 [num_order, num_city]
+        logits = self.actor(actor_input)
+
+        # 利用 mask 屏蔽不允许的动作，将 mask 为 0 的位置设为负无穷
+        if mask is not None:
+            # mask 为 [num_order, num_city]，1 表示允许，0 表示不允许
+            logits = logits.masked_fill(mask == 0, float('-inf'))
+        
+        # 根据是否探索选择温度参数,这里也改一下
+        temperature = 1 if explore else 0.5
+        # 计算 softmax 概率，注意温度参数的使用
+        probs = F.softmax(logits / temperature, dim=-1)
+
+        # 根据是否使用贪婪策略选择动作
+        if greedy:
+            # 选择概率最大的动作
+            actions = torch.argmax(probs, dim=-1).tolist()
+        else:
+            # 按照概率采样动作
+            torch.manual_seed(114514)
+            actions = [torch.multinomial(p, 1).item() for p in probs]
+
+        log_probs = F.log_softmax(logits / temperature, dim=-1)
+        actions_tensor = torch.tensor(actions, dtype=torch.long).to(self.device)       
+        selected_log_probs = log_probs.gather(1, actions_tensor.view(-1, 1)).squeeze()
+        
+        # 防止inf 和 0导致的异常
+        probs = torch.nan_to_num(probs, nan= eplison, posinf=0.0, neginf=0.0)
+        selected_log_probs = torch.nan_to_num(selected_log_probs, nan= eplison, posinf=0.0, neginf=0.0)
+        log_probs = torch.nan_to_num(log_probs, nan= eplison, posinf=0.0, neginf=0.0)
+        # 返回动作以及对应的 log 概率
+        return actions, selected_log_probs ,log_probs, probs
     def take_action_skyrim(self, vehicle_states, order_states,explore=True, greedy=False):
         """为当前活跃订单生成动作 ⭐"""
      
@@ -239,7 +295,6 @@ class MultiAgentAC(torch.nn.Module):
         
         # 计算原始 logits，其形状应为 [num_order, num_city]
         logits = self.actor(actor_input)
-
         
         # 根据是否探索选择温度参数,这里也改一下
         temperature = 1 if explore else 0.5
@@ -289,13 +344,27 @@ class MultiAgentAC(torch.nn.Module):
         # 合并损失
         total_loss = actor_loss + critic_loss
 
+        # 更新 actor
+        self.actor_optimizer.zero_grad()          # 清空 actor 优化器的梯度
+        actor_loss.backward()                     # 计算 actor_loss 的梯度
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)  # 裁剪 actor 的梯度
+        self.actor_optimizer.step()               # 更新 actor 参数
+
+        # 更新 critic
+        self.critic_optimizer.zero_grad()         # 清空 critic 优化器的梯度
+        critic_loss.backward()                    # 计算 critic_loss 的梯度
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)  # 裁剪 critic 的梯度
+        self.critic_optimizer.step()              # 更新 critic 参数
         # 反向传播
+        """
         self.optimizer.zero_grad()
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         # 也对critic进行梯度裁剪,这是修改处
         torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.optimizer.step()
+        """
+        
         
     def store_experience(self, vehicle_states, order_states, selected_log_probs, 
                          log_probs, probs, rewards, next_vehicle_states, next_order_states):
@@ -359,12 +428,12 @@ class MultiAgentAC(torch.nn.Module):
         """获取Critic的全局状态表征（无掩码）"""
         
         v_tensor = torch.FloatTensor(v_states).to(self.device)
-        v_encoded = self.vehicle_encoder(v_tensor)
+        v_encoded = v_tensor
         global_vehicle = torch.mean(v_encoded, dim=0)
         
         # 订单全局特征
         o_tensor = torch.FloatTensor(o_states).to(self.device)
-        o_encoded = self.order_encoder(o_tensor)
+        o_encoded = o_tensor
         global_order = torch.mean(o_encoded, dim=0)
         
         return torch.cat([global_vehicle, global_order])
@@ -419,75 +488,4 @@ class MultiAgentAC(torch.nn.Module):
         torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.optimizer.step()
 
-    def update_third_buffer_rnn(self):
-        if len(self.buffer) < self.batch_size:
-            return
-        experiences = self.buffer.sample(self.batch_size)
-        batch = Experience(*zip(*experiences))
-        
-        # 处理变长序列
-        def pad_states(states_list):
-            # states_list 是 [batch_size] 的列表，每个元素是 [num_items, state_dim]
-            tensors = [torch.tensor(state, dtype=torch.float) for state in states_list]
-            padded = pad_sequence(tensors, batch_first=True)  # [batch_size, max_len, state_dim]
-            lengths = torch.tensor([len(state) for state in states_list], dtype=torch.long)
-            return padded, lengths
-
-        v_states, v_lengths = pad_states(batch.vehicle_states)
-        o_states, o_lengths = pad_states(batch.order_states)
-        next_v_states, next_v_lengths = pad_states(batch.next_vehicle_states)
-        next_o_states, next_o_lengths = pad_states(batch.next_order_states)
-        
-        # 转为设备
-        v_states = v_states.to(self.device)
-        o_states = o_states.to(self.device)
-        next_v_states = next_v_states.to(self.device)
-        next_o_states = next_o_states.to(self.device)
-        v_lengths = v_lengths.to(self.device)
-        o_lengths = o_lengths.to(self.device)
-        
-        # 其他张量
-        rewards = torch.tensor(batch.rewards, dtype=torch.float).to(self.device)
-        
-        max_orders = max(len(probs) for probs in batch.selected_log_probs)
-        selected_log_probs_padded = [list(probs) + [0]*(max_orders - len(probs)) 
-                                    for probs in batch.selected_log_probs]
-        selected_log_probs = torch.tensor(selected_log_probs_padded, dtype=torch.float).to(self.device)
-        # GRU 编码
-        def encode_states(states, lengths, encoder):
-            # states: [batch_size, max_len, state_dim]
-            # lengths: [batch_size]
-            packed = torch.nn.utils.rnn.pack_padded_sequence(states, lengths, batch_first=True, enforce_sorted=False)
-            output, hidden = encoder(packed)  # hidden: [1, batch_size, hidden_dim]
-            return hidden.squeeze(0)  # [batch_size, hidden_dim]
-
-        v_encoded = encode_states(v_states, v_lengths, self.vehicle_encoder)
-        o_encoded = encode_states(o_states, o_lengths, self.order_encoder)
-        next_v_encoded = encode_states(next_v_states, next_v_lengths, self.vehicle_encoder)
-        next_o_encoded = encode_states(next_o_states, next_o_lengths, self.order_encoder)
-
-        # 计算全局状态
-        global_current = torch.cat([torch.mean(v_encoded, dim=0, keepdim=True).expand_as(o_encoded), o_encoded], dim=-1)
-        global_next = torch.cat([torch.mean(next_v_encoded, dim=0, keepdim=True).expand_as(next_o_encoded), next_o_encoded], dim=-1)
-
-        # Critic 和 Actor 计算
-        current_v = self.critic(torch.mean(v_encoded, dim=0))  # 全局车辆状态
-        next_v = self.critic(torch.mean(next_v_encoded, dim=0))
-        td_target = rewards + 0.95 * next_v 
-        critic_loss = F.mse_loss(current_v, td_target.detach())
-
-        entropy = -torch.sum(probs * log_probs, dim=-1).mean()
-        advantage = (td_target - current_v).detach()
-        actor_loss = -(selected_log_probs * advantage).mean() - 0.01 * entropy
-
-        total_loss = actor_loss + critic_loss
-
-        self.optimizer.zero_grad()
-        total_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.vehicle_encoder.parameters(), 0.5)
-        torch.nn.utils.clip_grad_norm_(self.order_encoder.parameters(), 0.5)
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
-        self.optimizer.step()
-
- 
+    

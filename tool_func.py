@@ -205,6 +205,15 @@ def vectorization_order(orders):
         for order in orders  # 假设 `orders` 是包含所有订单的列表
         ])
 
+def vectorization_order_mask(orders, G:CityGraph, num_city):
+    
+    return np.vstack([
+
+    
+    feasible_action_binary(order, num_city, G)
+
+    for order in orders.values()  
+    ])
         
 def basic_cost(vehicles:dict, orders_unmatched:dict):
     vehicle_cost = 0
@@ -315,6 +324,20 @@ def get_multi_reward(agent):
     for order in agent.last_order:
         if order.matched:
             agent.reward += order.revenue + random.randint(0, 100)
-    
+# 直接把掩码打进向量    
+def feasible_action_binary(order:dict, num_city, G:CityGraph):
+    feasible_action = [0]*num_city
+    j = 0
+    _, path_order = G.get_intercity_path(*order.route())
+    for j in range(num_city):
+        if order.destination == j:
+            feasible_action[j] = 0
+        elif j not in G.get_neighbors(order.departure):
+            feasible_action[j] = 0
+        elif j == path_order[1]:
+            feasible_action[j] = 0
+        else:
+            feasible_action[j] = 1    
+        j = j + 1
+    return feasible_action
         
-    
