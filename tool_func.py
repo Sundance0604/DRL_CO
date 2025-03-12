@@ -341,3 +341,11 @@ def feasible_action_binary(order:dict, num_city, G:CityGraph):
         j = j + 1
     return feasible_action
         
+# 每个城市当前可获得的车辆
+def seat_count(capacity,city_node):
+    seat_city = []
+    for city in city_node.values():
+        seat_city.append(city.city_seat_count(capacity))
+    return seat_city
+
+    

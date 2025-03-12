@@ -122,9 +122,7 @@ class MultiAgentAC(torch.nn.Module):
         self.action = []
         self.v_states = np.array([])
 
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)  # actor_lr 是 actor 的学习率
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr)  # critic_lr 是 critic 的学习率
-    
+        
     def take_action_mask(self, vehicle_states, order_states, mask,explore=True, greedy=False):
         """为当前活跃订单生成动作 ⭐"""
         mask = torch.from_numpy(mask).to(self.device)
@@ -343,27 +341,13 @@ class MultiAgentAC(torch.nn.Module):
 
         # 合并损失
         total_loss = actor_loss + critic_loss
-
-        # 更新 actor
-        self.actor_optimizer.zero_grad()          # 清空 actor 优化器的梯度
-        actor_loss.backward()                     # 计算 actor_loss 的梯度
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)  # 裁剪 actor 的梯度
-        self.actor_optimizer.step()               # 更新 actor 参数
-
-        # 更新 critic
-        self.critic_optimizer.zero_grad()         # 清空 critic 优化器的梯度
-        critic_loss.backward()                    # 计算 critic_loss 的梯度
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)  # 裁剪 critic 的梯度
-        self.critic_optimizer.step()              # 更新 critic 参数
-        # 反向传播
-        """
         self.optimizer.zero_grad()
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 0.5)
         # 也对critic进行梯度裁剪,这是修改处
         torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.optimizer.step()
-        """
+        
         
         
     def store_experience(self, vehicle_states, order_states, selected_log_probs, 

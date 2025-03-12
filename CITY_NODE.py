@@ -113,3 +113,6 @@ class City:
         self.vehicle_available = {}
         self.virtual_departure = {}
         self.real_departure = {}
+    
+    def city_seat_count(self,capacity):
+        return sum([capacity - vehicle.get_capacity() for vehicle in self.vehicle_available.values()])
