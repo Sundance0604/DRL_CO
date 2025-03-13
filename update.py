@@ -28,7 +28,7 @@ def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict
             
             # 对于dispatching
             if i%4 == 0:
-                # Vehicles[i//4].update_time()
+        
                 if v.x == 1.0:
                     Vehicles[i//4].decision = 0
                     # 前往的城市在订单的迭代中修改
@@ -42,7 +42,7 @@ def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict
                 if v.x == 1.0 :
                     Vehicles[i//4].decision = 2
                     
-                    # 整一个
+        
         else:
             
             # 如果该订单被匹配
@@ -111,9 +111,11 @@ def update_vehicle(Vehicles:Dict,battery_consume:int,battery_add:int,speed:int,G
             # if vehicle.battery >= 100:先不管
                 #vehicle.battery = 10000
         if vehicle.decision == 0 and len(vehicle.get_orders()) > 0 :# 怪哉 and vehicle.last_decision == 0 :
+            # if vehicle.last_decision == 0:
             path_update(vehicle, G)
+
                 # vehicle.longest_path = vehicle.longest_path[1:]
-            # 强制驱逐
+            
             """
             if vehicle.last_decision == 0 :
             if vehicle.decision != 3:

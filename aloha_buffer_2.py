@@ -50,20 +50,28 @@ class ReplayBuffer:
         self.log_probs = []
         self.selected_log_probs = []
 
-    def push(self, *args):
-        self.v_states.append(args[0])
-        self.o_states.append(args[1])
-        self.rewards.append(args[2])
-        self.probs.append(args[3])
-        self.log_probs.append(args[4])
-        self.selected_log_probs.append(args[5])
+    def push(self, v_states, o_states, rewards, probs, log_probs, selected_log_probs):
+        self.v_states.append(v_states)
+        self.o_states.append(o_states)
+        self.rewards.append(rewards)
+        self.probs.append(probs)
+        self.log_probs.append(log_probs)
+        self.selected_log_probs.append(selected_log_probs)
     def length(self):
         return len(self.rewards)
+    def clear(self):
+        """清空所有存储的数据"""
+        self.v_states = []
+        self.o_states = []
+        self.rewards = []
+        self.probs = []
+        self.log_probs = []
+        self.selected_log_probs = []
 
 class MultiAgentAC(torch.nn.Module):
     def __init__(self, device, VEHICLE_STATE_DIM, 
                  ORDER_STATE_DIM, NUM_CITIES, 
-                 HIDDEN_DIM, STATE_DIM):
+                 HIDDEN_DIM, STATE_DIM, batch_size):
         super(MultiAgentAC, self).__init__()
         self.buffer = ReplayBuffer()
        
@@ -75,13 +83,13 @@ class MultiAgentAC(torch.nn.Module):
         self.critic = ValueNet(STATE_DIM, HIDDEN_DIM).to(device)
         
         # 优化器
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=3e-3)
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=3e-3)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=0.01)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=0.01)
         
         # 动态智能体管理 ⭐
         self.active_orders = {}       # 当前活跃订单 {order_id: order_state}
         self.next_order_id = 0        # 订单ID生成器
-        self.batch_size = 16
+        self.batch_size = batch_size
         self.active = False
         self.current_order = []
         self.last_order = []
@@ -89,6 +97,7 @@ class MultiAgentAC(torch.nn.Module):
         self.action_key = ''
         self.action = []
         self.v_states = np.array([])
+        self.gamma = 0.95
 
       
     # 改变vehicle_states,不再是平均值，而是其他办法
@@ -142,40 +151,42 @@ class MultiAgentAC(torch.nn.Module):
     
     def store_experience(self, v_states, o_states, rewards, probs, log_probs, selected_log_probs):
         self.buffer.push(v_states, o_states, rewards, probs, log_probs, selected_log_probs)
-
-    def update_third(self, time, TIME,saq_len = 8):
+    def update(self, time, saq_len = 8):
         
         if self.buffer.length() < self.batch_size:
             return
-        start_postion = time - self.batch_size
-        v_states = torch.tensor(self.buffer.v_states[start_postion], dtype=torch.float).to(self.device)
-        o_states = torch.tensor(self.buffer.log_probs[start_postion], dtype=torch.float).to(self.device)
-        rewards = torch.tensor(self.buffer.rewards[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
-        next_v_states = torch.tensor(next_vehicle_states, dtype=torch.float).to(self.device)
-        next_o_states = torch.tensor(next_order_states, dtype=torch.float).to(self.device)
-        dones = torch.tensor(dones, dtype=torch.float).to(self.device)
+        start_postion = time - self.batch_size+1
 
+        v_states = torch.tensor(self.buffer.v_states[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
+        # 注意到只能分批转化为张量
+        rewards = torch.tensor(self.buffer.rewards[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
+        probs = self.buffer.probs[start_postion].clone().detach()
+        selected_log_probs = self.buffer.selected_log_probs[start_postion].clone().detach()
+        log_probs = self.buffer.log_probs[start_postion].clone().detach()
         # 计算 Critic 损失
+        current_o_states = torch.from_numpy(self.buffer.o_states[start_postion]).float().to(self.device)
+        final_o_states = torch.from_numpy(self.buffer.o_states[start_postion+saq_len-1]).float().to(self.device)
+        current_global = self._get_global_state(v_states[0], current_o_states)
         
-        current_global = self._get_global_state(v_states, o_states)
         current_v = self.critic(current_global)
         cumulative_reward = 0
+        
         for reward in rewards:
             cumulative_reward = reward + self.gamma * cumulative_reward 
-        
-        next_global = self._get_global_state(next_v_states, next_o_states)
-        
-        next_v = self.critic(next_global)
-        td_target = rewards + 0.9 * next_v * (1 - dones)
+        td_target = cumulative_reward + (self.gamma ** saq_len) * self.critic(self._get_global_state(v_states[-1], final_o_states))
         critic_loss = F.mse_loss(current_v, td_target.detach())
+
         entropy = -torch.sum(probs * log_probs, dim=-1).mean()
         # 不再是num_orders这一固定的
-        advantage = (td_target - current_v).detach().repeat_interleave(len(order_states))
-        actor_loss = -(selected_log_probs * advantage).mean() - 0.05 * entropy
-        # 合并损失
-        
+        advantage = (td_target - current_v).detach()
+        actor_loss = -(selected_log_probs * advantage).mean() - 0.01 * entropy
+        # print("actor_loss:", actor_loss.item(), "critic_loss:", critic_loss.item(), "advantage:", advantage.item(), "current_v:", current_v.item(), "td_target:", td_target.item())
+
         self.actor_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
+        actor_loss.requires_grad = True
         actor_loss.backward()  # 计算策略网络的梯度
         critic_loss.backward()  # 计算价值网络的梯度
         self.actor_optimizer.step()  # 更新策略网络的参数

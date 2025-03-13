@@ -219,11 +219,13 @@ def basic_cost(vehicles:dict, orders_unmatched:dict):
     vehicle_cost = 0
     order_cost = 0
     for vehicle in vehicles.values():
-        if vehicle.decision == 0 or vehicle.decision == 3:
+        if vehicle.decision == 3:
+            vehicle_cost += 10
+        if vehicle.decision == 0:
             vehicle_cost += 10
         if vehicle.decision == 1:
             vehicle_cost += 1
-        if vehicle.decision == 0:
+        if vehicle.decision == 2:
             vehicle_cost += 0
     for order in orders_unmatched.values():
         order_cost += order.penalty
