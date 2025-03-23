@@ -1,5 +1,6 @@
 import logging
 from typing import Tuple
+import CITY_GRAPH as G
 
 # 设置日志记录
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +24,6 @@ class Order:
         self.revenue = revenue
         self.penalty = penalty
         self.least_time_consume = least_time_consume
-        self.path_key = ''
     def __repr__(self):
         """打印订单的简洁信息"""
         matched_status = "Matched" if self.matched else "Unmatched"

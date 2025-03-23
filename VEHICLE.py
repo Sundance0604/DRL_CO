@@ -25,6 +25,7 @@ class Vehicle:
         self.orders = orders if orders else {}  # 初始化订单字典
         self.history_orders = []
         self.longest_path = [-1]
+        self.capacity = 7
 
     def __repr__(self):
         return (f"Vehicle(id={self.id}, time={self.time}, "
@@ -105,7 +106,7 @@ class Vehicle:
     def get_capacity(self):
         """获取当前载客总人数"""
         return sum(order.passenger for order in self.orders.values())
-
+    
     def get_orders(self):
         """获取所有订单对象"""
         return list(self.orders.values())

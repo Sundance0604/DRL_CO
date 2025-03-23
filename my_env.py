@@ -218,15 +218,15 @@ class DispatchEnv(gym.Env):
             _, path_order = self.G.get_intercity_path(*order.route())
             # 表示不可目的地
             if order.destination == actions[i]:
-                reward += -100
+                reward += -1
                 order.virtual_departure =  order.departure
             # 表示不可非邻接
             elif actions[i] not in self.G.get_neighbors(order.departure):
-                reward += -100
+                reward += -1
                 order.virtual_departure =  order.departure
             # 表示不可在前驱
             elif actions[i] == path_order[1]:
-                reward += -100
+                reward += -1
                 order.virtual_departure =  order.departure
             else:
                 order.virtual_departure = actions[i]

@@ -114,8 +114,9 @@ class Lower_Layer:
             HABCD
             """
             for order1, order2 in combinations(city.virtual_departure.values(), 2):
-                
-                if order1.path_key not in order2.path_key and order2.path_key not in order1.path_key:
+                _, path_order1 = self.city_graph.get_intercity_path(*order1.virtual_route())
+                _, path_order2 = self.city_graph.get_intercity_path(*order2.virtual_route())
+                if  list_str(path_order1) not in list_str(path_order2) and list_str(path_order2) not in list_str(path_order1):
                     self.model.addConstrs(
                         (self.X_Order[order1.id, vehicle.id] + self.X_Order[order1.id, vehicle.id] <= 1
                             for vehicle in city.vehicle_available.values()),
@@ -174,7 +175,7 @@ class Lower_Layer:
                     if vehicle.get_orders():
                         # 含有订单者
                         _,path_order = self.city_graph.get_intercity_path(*order.virtual_route())
-                        if str(vehicle.longest_path) not in str(path_order) and str(path_order) not in str(vehicle.longest_path):
+                        if str(vehicle.longest_path) not in list_str(path_order) and list_str(path_order) not in str(vehicle.longest_path):
                             self.model.addConstr(
                                 self.X_Order[order.id ,vehicle.id]==0,
                                 name = f"constrain_3_7_order_{order.id}_vehicle_{vehicle.id}"

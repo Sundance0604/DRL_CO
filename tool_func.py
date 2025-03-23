@@ -65,9 +65,7 @@ def order_generator(num_order:int, time: int, num_city:int,CAPACITY,G:CityGraph,
         order = Order(id, passenger, departure, destination, start_time, 
                       end_time, virtual_departure, battery,distance,revenue,penalty,
                       least_time_consume)
-        # 创建路径字符串
-        order.path_key = list_str(order_feasible_action(order, num_city, G))
-        
+        # 已将path_key移除
         Orders[id] = order
     return Orders 
 
@@ -214,6 +212,15 @@ def vectorization_order_mask(orders, G:CityGraph, num_city):
 
     for order in orders.values()  
     ])
+def vectorization_order_detial(orders, G:CityGraph, num_city, city_node):
+    
+    return np.vstack([
+
+    
+    order_city_seat_count(order, city_node, feasible_action_binary(order, num_city, G), G)
+
+    for order in orders.values()  
+    ])
         
 def basic_cost(vehicles:dict, orders_unmatched:dict):
     vehicle_cost = 0
@@ -349,5 +356,33 @@ def seat_count(capacity,city_node):
     for city in city_node.values():
         seat_city.append(city.city_seat_count(capacity))
     return seat_city
+# 得到某车辆所在各城市可行的座位数
+def order_city_seat_count(order, city_node:dict, feasible_action:list, G:CityGraph):
+    order_city_seat = [0]*len(feasible_action)
+    i = 0
+    for feasible_city in  feasible_action:
+        if feasible_city == 0:
+            order_city_seat[i] = 0
+        else:
+            if city_node[i].available_vehicles:
+                for vehicle in city_node[i].available_vehicles.values():
+                    try:
+                        _, path_order = G.get_intercity_path(i, order.destination)
+                    except:
+                        print(i, order.destination, feasible_action)
+                    # 这里的比较方式与lower_layer一样
+                    if str(vehicle.longest_path) not in list_str(path_order) and list_str(path_order) not in str(vehicle.longest_path):
+                        order_city_seat[i] = 0
+                    else:
+                        order_city_seat[i] += vehicle.capacity - vehicle.get_capacity()
+                    
+            else:
+                order_city_seat[i] = 0
+        i+=1
+    return order_city_seat
+
+# 检查路径函数
+
+
 
     

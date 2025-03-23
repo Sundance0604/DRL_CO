@@ -1,14 +1,87 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import torch.nn as nn
 import random
 from collections import namedtuple,deque
 from torch import optim
 import torch.nn.utils.rnn as rnn_utils
 import os
 from torch.nn.utils.rnn import pad_sequence
+import copy
 
+class ComplexPolicyNet(nn.Module):
+    def __init__(self, state_dim, hidden_dim, action_dim, dropout_p=0.2):
+        super(ComplexPolicyNet, self).__init__()
+        self.fc1 = nn.Linear(state_dim, hidden_dim)
+        self.ln1 = nn.LayerNorm(hidden_dim)
+        
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln2 = nn.LayerNorm(hidden_dim)
+        
+        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln3 = nn.LayerNorm(hidden_dim)
+        
+        self.fc4 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln4 = nn.LayerNorm(hidden_dim)
+        
+        self.fc5 = nn.Linear(hidden_dim, action_dim)
+        
+        self.dropout = nn.Dropout(dropout_p)
+        
+    def forward(self, x):
+        # 保证输入为二维张量： (batch_size, state_dim)
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+            
+        out1 = F.relu(self.ln1(self.fc1(x)))
+        out2 = F.relu(self.ln2(self.fc2(out1)))
+        out2 = self.dropout(out2)
+        out2 = out2 + out1  # 残差连接
+        
+        out3 = F.relu(self.ln3(self.fc3(out2)))
+        out3 = self.dropout(out3)
+        out3 = out3 + out2
+        
+        out4 = F.relu(self.ln4(self.fc4(out3)))
+        out4 = self.dropout(out4)
+        out4 = out4 + out3
+        
+        logits = self.fc5(out4)
+        probs = F.softmax(logits, dim=1)
+        return probs
 
+class ComplexValueNet(nn.Module):
+    def __init__(self, state_dim, hidden_dim, dropout_p=0.2):
+        super(ComplexValueNet, self).__init__()
+        self.fc1 = nn.Linear(state_dim, hidden_dim)
+        self.ln1 = nn.LayerNorm(hidden_dim)
+        
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln2 = nn.LayerNorm(hidden_dim)
+        
+        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln3 = nn.LayerNorm(hidden_dim)
+        
+        self.fc4 = nn.Linear(hidden_dim, 1)
+        
+        self.dropout = nn.Dropout(dropout_p)
+        
+    def forward(self, x):
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+            
+        out1 = F.relu(self.ln1(self.fc1(x)))
+        out2 = F.relu(self.ln2(self.fc2(out1)))
+        out2 = self.dropout(out2)
+        out2 = out2 + out1
+        
+        out3 = F.relu(self.ln3(self.fc3(out2)))
+        out3 = self.dropout(out3)
+        out3 = out3 + out2
+        
+        value = self.fc4(out3)
+        return value
 
 class PolicyNet(torch.nn.Module):
     # 请注意改成更多层的了
@@ -67,6 +140,8 @@ class ReplayBuffer:
         self.probs = []
         self.log_probs = []
         self.selected_log_probs = []
+    def restore(self):
+        pass
 
 class MultiAgentAC(torch.nn.Module):
     def __init__(self, device, VEHICLE_STATE_DIM, 
@@ -83,8 +158,8 @@ class MultiAgentAC(torch.nn.Module):
         self.critic = ValueNet(STATE_DIM, HIDDEN_DIM).to(device)
         
         # 优化器
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=0.01)
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=0.01)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=0.00001)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=0.00001)
         
         # 动态智能体管理 ⭐
         self.active_orders = {}       # 当前活跃订单 {order_id: order_state}
@@ -101,6 +176,55 @@ class MultiAgentAC(torch.nn.Module):
 
       
     # 改变vehicle_states,不再是平均值，而是其他办法
+    
+    def update(self, time, saq_len = 2):
+        
+        if self.buffer.length() < self.batch_size:
+            return
+        start_postion = time - self.batch_size+1
+
+        v_states = torch.tensor(self.buffer.v_states[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
+        # 注意到只能分批转化为张量
+        rewards = torch.tensor(self.buffer.rewards[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
+        probs = self.buffer.probs[start_postion].clone().detach()
+        selected_log_probs = self.buffer.selected_log_probs[start_postion].clone().detach()
+        log_probs = self.buffer.log_probs[start_postion].clone().detach()
+        # 计算 Critic 损失
+        current_o_states = torch.from_numpy(self.buffer.o_states[start_postion]).float().to(self.device)
+        final_o_states = torch.from_numpy(self.buffer.o_states[start_postion+saq_len-1]).float().to(self.device)
+        current_global = self._get_global_state(v_states[0], current_o_states)
+        
+        current_v = self.critic(current_global)
+        cumulative_reward = 0
+        
+        # 归一化
+        mean_reward = rewards.mean()
+        std_reward = rewards.std() + 1e-8
+        normalized_rewards = (rewards - mean_reward) / std_reward
+
+        # 累积计算
+        cumulative_reward = 0
+        for normalized_reward in normalized_rewards:
+            cumulative_reward = normalized_reward + self.gamma * cumulative_reward
+        td_target = cumulative_reward + (self.gamma ** saq_len) * self.critic(self._get_global_state(v_states[-1], final_o_states))
+        critic_loss = F.mse_loss(current_v, td_target.detach())
+
+        entropy = -torch.sum(probs * log_probs, dim=-1).mean()
+        # 不再是num_orders这一固定的
+        advantage = (td_target - current_v).detach()
+        actor_loss = -(selected_log_probs * advantage).mean() - 0.01 * entropy
+        # print("actor_loss:", actor_loss.item(), "critic_loss:", critic_loss.item(), "advantage:", advantage.item(), "current_v:", current_v.item(), "td_target:", td_target.item())
+
+        self.actor_optimizer.zero_grad()
+        self.critic_optimizer.zero_grad()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
+        actor_loss.requires_grad = True
+        actor_loss.backward()  # 计算策略网络的梯度
+        critic_loss.backward()  # 计算价值网络的梯度
+        self.actor_optimizer.step()  # 更新策略网络的参数
+        self.critic_optimizer.step()  # 更新价值网络的参数
+     
     def take_action_vehicle(self, vehicle_states, order_states, mask,explore=True, greedy=False):
         """为当前活跃订单生成动作 ⭐"""
         eplison = 0.00001
@@ -151,47 +275,6 @@ class MultiAgentAC(torch.nn.Module):
     
     def store_experience(self, v_states, o_states, rewards, probs, log_probs, selected_log_probs):
         self.buffer.push(v_states, o_states, rewards, probs, log_probs, selected_log_probs)
-    def update(self, time, saq_len = 8):
-        
-        if self.buffer.length() < self.batch_size:
-            return
-        start_postion = time - self.batch_size+1
-
-        v_states = torch.tensor(self.buffer.v_states[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
-        # 注意到只能分批转化为张量
-        rewards = torch.tensor(self.buffer.rewards[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
-        probs = self.buffer.probs[start_postion].clone().detach()
-        selected_log_probs = self.buffer.selected_log_probs[start_postion].clone().detach()
-        log_probs = self.buffer.log_probs[start_postion].clone().detach()
-        # 计算 Critic 损失
-        current_o_states = torch.from_numpy(self.buffer.o_states[start_postion]).float().to(self.device)
-        final_o_states = torch.from_numpy(self.buffer.o_states[start_postion+saq_len-1]).float().to(self.device)
-        current_global = self._get_global_state(v_states[0], current_o_states)
-        
-        current_v = self.critic(current_global)
-        cumulative_reward = 0
-        
-        for reward in rewards:
-            cumulative_reward = reward + self.gamma * cumulative_reward 
-        td_target = cumulative_reward + (self.gamma ** saq_len) * self.critic(self._get_global_state(v_states[-1], final_o_states))
-        critic_loss = F.mse_loss(current_v, td_target.detach())
-
-        entropy = -torch.sum(probs * log_probs, dim=-1).mean()
-        # 不再是num_orders这一固定的
-        advantage = (td_target - current_v).detach()
-        actor_loss = -(selected_log_probs * advantage).mean() - 0.01 * entropy
-        # print("actor_loss:", actor_loss.item(), "critic_loss:", critic_loss.item(), "advantage:", advantage.item(), "current_v:", current_v.item(), "td_target:", td_target.item())
-
-        self.actor_optimizer.zero_grad()
-        self.critic_optimizer.zero_grad()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
-        actor_loss.requires_grad = True
-        actor_loss.backward()  # 计算策略网络的梯度
-        critic_loss.backward()  # 计算价值网络的梯度
-        self.actor_optimizer.step()  # 更新策略网络的参数
-        self.critic_optimizer.step()  # 更新价值网络的参数
-     
     def _get_global_state(self, v_states, o_states):
         """获取Critic的全局状态表征（无掩码）"""
         
@@ -204,5 +287,63 @@ class MultiAgentAC(torch.nn.Module):
         global_order = torch.mean(o_encoded, dim=0)
         
         return torch.cat([v_encoded, global_order])
+    
+    def update_n_sample(self, time, saq_len=4, n_smaple = 4):
+        # 保证缓冲区中有足够的数据连续采样
+        if self.buffer.length() < self.batch_size:
+            return
+        actor_losses = []
+        critic_losses = []
+        for t in range(time, time+n_smaple):
+            start_postion = t - self.batch_size+1
+            if start_postion+saq_len > len(self.buffer.v_states):
+                break
+            v_states = torch.tensor(self.buffer.v_states[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
+            # 注意到只能分批转化为张量
+            rewards = torch.tensor(self.buffer.rewards[start_postion:start_postion+saq_len], dtype=torch.float).to(self.device)
+            probs = self.buffer.probs[start_postion].clone().detach()
+            selected_log_probs = self.buffer.selected_log_probs[start_postion].clone().detach()
+            log_probs = self.buffer.log_probs[start_postion].clone().detach()
+            # 计算 Critic 损失
+            current_o_states = torch.from_numpy(self.buffer.o_states[start_postion]).float().to(self.device)
+            final_o_states = torch.from_numpy(self.buffer.o_states[start_postion+saq_len-1]).float().to(self.device)
+            current_global = self._get_global_state(v_states[0], current_o_states)
+            
+            current_v = self.critic(current_global)
+            cumulative_reward = 0
+            
+            # 归一化
+            mean_reward = rewards.mean()
+            std_reward = rewards.std() + 1e-8
+            normalized_rewards = (rewards - mean_reward) / std_reward
+
+            # 累积计算
+            cumulative_reward = 0
+            for normalized_reward in normalized_rewards:
+                cumulative_reward = normalized_reward + self.gamma * cumulative_reward
+            td_target = cumulative_reward + (self.gamma ** saq_len) * self.critic(self._get_global_state(v_states[-1], final_o_states))
+            critic_loss = F.mse_loss(current_v, td_target.detach())
+
+            entropy = -torch.sum(probs * log_probs, dim=-1).mean()
+            # 不再是num_orders这一固定的
+            advantage = (td_target - current_v).detach()
+            actor_loss = -(selected_log_probs * advantage).mean() - 0.01 * entropy
+            actor_losses.append(actor_loss)
+            critic_losses.append(critic_loss)
+        average_actor_loss = sum(actor_losses)/len(actor_losses)
+        average_critic_loss =sum(critic_losses)/len(actor_losses)
+        self.actor_optimizer.zero_grad()
+        self.critic_optimizer.zero_grad()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
+        average_actor_loss.requires_grad = True
+        average_actor_loss.backward()  # 计算策略网络的梯度
+        average_critic_loss.backward()  # 计算价值网络的梯度
+        self.actor_optimizer.step()  # 更新策略网络的参数
+        self.critic_optimizer.step()  # 更新价值网络的参数
+        # print(self.actor.state_dict())
+        # print(self.critic.state_dict())
+
+
     
     
