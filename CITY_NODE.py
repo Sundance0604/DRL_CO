@@ -6,7 +6,7 @@ from ORDER import *
 logging.basicConfig(level=logging.INFO)
 
 class City:
-    __slots__ = ['city_id', 'neighbor', 'vehicle_available', 'charging_capacity', 
+    __slots__ = ['id', 'neighbor', 'vehicle_available', 'charging_capacity', 
                  'real_departure', 'virtual_departure']
 
     def __init__(self, city_id: int, neighbor: List[int], 
@@ -16,7 +16,7 @@ class City:
                  virtual_departure: Dict[int, 'Order']):
 
 
-        self.city_id = city_id
+        self.id = city_id
         self.neighbor = neighbor
         self.vehicle_available = vehicle_available
         self.charging_capacity = charging_capacity
@@ -25,32 +25,14 @@ class City:
 
     def __repr__(self):
         """返回城市的简洁信息"""
-        return (f"City(id={self.city_id}, "
+        return (f"City(id={self.id}, "
                 f"neighbors={self.neighbor}, "
                 f"available_vehicles={len(self.vehicle_available)}, "
                 f"charging_capacity={self.charging_capacity}, "
                 f"real_departure={len(self.real_departure)}, "
                 f"virtual_departure={len(self.virtual_departure)})")
-    # --- 属性访问方法 ---
-    @property
-    def id(self) -> int:
-        return self.city_id
+   
     
-    @property
-    def available_vehicles(self) -> Dict[int,'Vehicle']:
-        return self.vehicle_available
-    
-    @property
-    def neighbors(self) -> List[int]:
-        return self.neighbor
-    
-    @property
-    def real_departures(self) -> Dict[int, 'Order']:
-        return self.real_departure
-    
-    @property
-    def virtual_departures(self) -> Dict[int, 'Order']:
-        return self.virtual_departure
 
     # --- 方法 ---
     def add_available_vehicle(self, vehicle_id: int, vehicle: Vehicle):

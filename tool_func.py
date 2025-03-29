@@ -4,7 +4,6 @@ from VEHICLE import *
 import numpy as np
 from CITY_NODE import * 
 import os
-import Lower_Layer
 from collections import defaultdict
 import torch
 import copy
@@ -109,16 +108,16 @@ def city_update_without_drl(cities:dict, vehicles:dict, order_unmatched:dict, ti
     for city in cities.values():
         city.clean_all()
         for vehicle in vehicles.values():
-            if vehicle.whether_city and vehicle.intercity == city.city_id:
+            if vehicle.whether_city and vehicle.intercity == city.id:
                 city.add_available_vehicle(vehicle.id, vehicle)
                 
         for order in order_unmatched.values():
-            if order.departure == city.city_id and order.matched is False:
+            if order.departure == city.id and order.matched is False:
                 if order.start_time <= time :
                     city.add_real_departure(order.id, order)
                 
         for order in order_unmatched.values():
-            if order.virtual_departure == city.city_id and order.matched is False:
+            if order.virtual_departure == city.id and order.matched is False:
                 if order.start_time <= time :
                     city.add_virtual_departure(order.id, order)
                 
@@ -128,7 +127,7 @@ def city_update_base_drl(cities:dict, order_virtual:dict ,time:int):
         city.virtual_departure = {}
     # 忘记缩进了 >_<
         for order in order_virtual.values():
-            if order.virtual_departure == city.city_id and order.matched is False:
+            if order.virtual_departure == city.id and order.matched is False:
                 if order.start_time <= time :
                     city.add_virtual_departure(order.id, order)
 
@@ -204,14 +203,31 @@ def vectorization_order(orders):
         ])
 
 def vectorization_order_mask(orders, G:CityGraph, num_city):
-    
+
     return np.vstack([
-
-    
-    feasible_action_binary(order, num_city, G)
-
-    for order in orders.values()  
+        feasible_action_binary(order, num_city, G) for order in orders.values()             
     ])
+# 上面的列表推导式不容易检测错误
+def vectorization_order_mask_check(orders, G: CityGraph, num_city):
+    # 用于存储所有有效的可行动作
+    action_list = []
+
+    # 遍历 orders 中的每个订单
+    for order in orders.values():
+        # 获取当前订单的可行动作
+        action = feasible_action_binary(order, num_city, G)
+        
+        # 如果 action 不是空的，将其添加到列表中
+        if action is not None and len(action) > 0:
+            action_list.append(action)
+
+    # 检查 action_list 是否为空，如果为空则抛出异常
+    if len(action_list) == 0:
+        print('orders:', orders)
+        raise ValueError("No valid actions found for any orders.")
+    
+    # 将所有有效的可行动作堆叠成一个大数组并返回
+    return np.vstack(action_list)
 def vectorization_order_detial(orders, G:CityGraph, num_city, city_node):
     
     return np.vstack([
@@ -336,9 +352,8 @@ def get_multi_reward(agent):
 # 直接把掩码打进向量    
 def feasible_action_binary(order:dict, num_city, G:CityGraph):
     feasible_action = [0]*num_city
-    j = 0
     _, path_order = G.get_intercity_path(*order.route())
-    for j in range(num_city):
+    for j in range(0, num_city):
         if order.destination == j:
             feasible_action[j] = 0
         elif j not in G.get_neighbors(order.departure):
@@ -347,7 +362,6 @@ def feasible_action_binary(order:dict, num_city, G:CityGraph):
             feasible_action[j] = 0
         else:
             feasible_action[j] = 1    
-        j = j + 1
     return feasible_action
         
 # 每个城市当前可获得的车辆

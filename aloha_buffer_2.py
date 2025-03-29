@@ -122,7 +122,7 @@ class ReplayBuffer:
         self.probs = []
         self.log_probs = []
         self.selected_log_probs = []
-
+        self.best_invalid = 1000
     def push(self, v_states, o_states, rewards, probs, log_probs, selected_log_probs):
         self.v_states.append(v_states)
         self.o_states.append(o_states)
@@ -140,8 +140,22 @@ class ReplayBuffer:
         self.probs = []
         self.log_probs = []
         self.selected_log_probs = []
-    def restore(self):
-        pass
+    def restore(self, best_invalid):
+        self.best_invalid = best_invalid
+        self.betst_v_states = copy.deepcopy(self.v_states)
+        self.best_o_states = copy.deepcopy(self.o_states)
+        self.best_rewards = copy.deepcopy(self.rewards)
+        self.best_probs = copy.deepcopy([p.detach() for p in self.probs])
+        self.best_log_probs = copy.deepcopy([lp.detach() for lp in self.log_probs])
+        self.best_selected_log_probs = copy.deepcopy([slp.detach() for slp in self.selected_log_probs])
+    def use_best(self):
+        self.v_states = copy.deepcopy(self.betst_v_states)
+        self.o_states = copy.deepcopy(self.best_o_states)  
+        self.rewards = copy.deepcopy(self.best_rewards)
+        self.probs = copy.deepcopy([p.detach() for p in self.best_probs])
+        self.log_probs = copy.deepcopy([lp.detach() for lp in self.best_log_probs])
+        self.selected_log_probs = copy.deepcopy([slp.detach() for slp in self.best_selected_log_probs])
+        
 
 class MultiAgentAC(torch.nn.Module):
     def __init__(self, device, VEHICLE_STATE_DIM, 
@@ -158,8 +172,8 @@ class MultiAgentAC(torch.nn.Module):
         self.critic = ValueNet(STATE_DIM, HIDDEN_DIM).to(device)
         
         # 优化器
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=0.00001)
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=0.00001)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=0.001)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=0.001)
         
         # 动态智能体管理 ⭐
         self.active_orders = {}       # 当前活跃订单 {order_id: order_state}

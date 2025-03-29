@@ -268,6 +268,10 @@ class DispatchEnv(gym.Env):
                     mask[i][j] = 0
             i += 1
         return mask
+    
+    def cities_reload(self, cities):
+        self.cities = {}
+        self.cities = cities
         
         
         

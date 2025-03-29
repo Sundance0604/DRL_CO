@@ -96,7 +96,7 @@ class Lower_Layer:
 
 
         for city in self.city_node.values():
-            if not city.available_vehicles:
+            if not city.vehicle_available:
                 # print(city.id)
                 continue
             if not city.virtual_departure:
@@ -106,13 +106,7 @@ class Lower_Layer:
                 order.battery for order in city.virtual_departure.values()
             )
             # 按照路径划分订单,如果两者未重合或包含，那么不可同时匹配
-            """
-            ABCD
-            EABCD 
-            FEABCD
-            FEABCDG
-            HABCD
-            """
+           
             for order1, order2 in combinations(city.virtual_departure.values(), 2):
                 _, path_order1 = self.city_graph.get_intercity_path(*order1.virtual_route())
                 _, path_order2 = self.city_graph.get_intercity_path(*order2.virtual_route())
@@ -125,7 +119,7 @@ class Lower_Layer:
                 
                 
 
-            for vehicle in city.available_vehicles.values():
+            for vehicle in city.vehicle_available.values():
                 # 禁止电量不足的车辆匹配订单
                 if vehicle.battery < least_battery_demand:
                     #print(vehicle.id)
@@ -147,11 +141,14 @@ class Lower_Layer:
                 
                 for order in city.virtual_departure.values():
                     """确保闲置充电者无订单"""
-                    self.model.addConstr(
-                        self.X_Order[order.id, vehicle.id] + 
-                        (self.X_Vehicle[vehicle.id, 1] + self.X_Vehicle[vehicle.id, 2]) <= 1,
-                        name=f"constrain_3_3_order_{order.id}_vehicle_{vehicle.id}"
-                    )
+                    try:
+                        self.model.addConstr(
+                            self.X_Order[order.id, vehicle.id] + 
+                            self.X_Vehicle[vehicle.id, 1] + self.X_Vehicle[vehicle.id, 2] <= 1,
+                            name=f"constrain_3_3_order_{order.id}_vehicle_{vehicle.id}"
+                        )
+                    except:
+                        print(f"order: {order.id, order.matched}, vehicle: {vehicle.id},city:{city.virtual_departure.values()}")
 
                     # 禁止不在当前城市的车辆匹配
                     if vehicle.intercity != order.virtual_departure:
@@ -199,7 +196,7 @@ class Lower_Layer:
         for city in self.city_node.values():
             # 计算每个城市充电站的充电需求和约束
             charging_demand = 0
-            for vehicle in city.available_vehicles.values():
+            for vehicle in city.vehicle_available.values():
                 charging_demand += self.X_Vehicle[vehicle.id, 1]
                 # 禁止充电
                 if vehicle.battery == 100:
