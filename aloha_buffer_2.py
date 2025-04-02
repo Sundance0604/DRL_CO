@@ -9,6 +9,7 @@ import torch.nn.utils.rnn as rnn_utils
 import os
 from torch.nn.utils.rnn import pad_sequence
 import copy
+import rl_utils
 
 class ComplexPolicyNet(nn.Module):
     def __init__(self, state_dim, hidden_dim, action_dim, dropout_p=0.2):
@@ -123,13 +124,15 @@ class ReplayBuffer:
         self.log_probs = []
         self.selected_log_probs = []
         self.best_invalid = 1000
-    def push(self, v_states, o_states, rewards, probs, log_probs, selected_log_probs):
+        self.masks =[]
+    def push(self, v_states, o_states, rewards, probs, log_probs, selected_log_probs,mask):
         self.v_states.append(v_states)
         self.o_states.append(o_states)
         self.rewards.append(rewards)
         self.probs.append(probs)
         self.log_probs.append(log_probs)
         self.selected_log_probs.append(selected_log_probs)
+        self.masks.append(mask)
     def length(self):
         return len(self.rewards)
     def clear(self):
@@ -140,6 +143,7 @@ class ReplayBuffer:
         self.probs = []
         self.log_probs = []
         self.selected_log_probs = []
+        self.masks = []
     def restore(self, best_invalid):
         self.best_invalid = best_invalid
         self.betst_v_states = copy.deepcopy(self.v_states)
@@ -148,6 +152,7 @@ class ReplayBuffer:
         self.best_probs = copy.deepcopy([p.detach() for p in self.probs])
         self.best_log_probs = copy.deepcopy([lp.detach() for lp in self.log_probs])
         self.best_selected_log_probs = copy.deepcopy([slp.detach() for slp in self.selected_log_probs])
+        self.best_masks = copy.deepcopy(self.masks)
     def use_best(self):
         self.v_states = copy.deepcopy(self.betst_v_states)
         self.o_states = copy.deepcopy(self.best_o_states)  
@@ -155,7 +160,7 @@ class ReplayBuffer:
         self.probs = copy.deepcopy([p.detach() for p in self.best_probs])
         self.log_probs = copy.deepcopy([lp.detach() for lp in self.best_log_probs])
         self.selected_log_probs = copy.deepcopy([slp.detach() for slp in self.best_selected_log_probs])
-        
+        self.masks = copy.deepcopy(self.best_masks)
 
 class MultiAgentAC(torch.nn.Module):
     def __init__(self, device, VEHICLE_STATE_DIM, 
@@ -287,8 +292,8 @@ class MultiAgentAC(torch.nn.Module):
         # 返回动作以及对应的 log 概率
         return actions, selected_log_probs ,log_probs, probs
     
-    def store_experience(self, v_states, o_states, rewards, probs, log_probs, selected_log_probs):
-        self.buffer.push(v_states, o_states, rewards, probs, log_probs, selected_log_probs)
+    def store_experience(self, v_states, o_states, rewards, probs, log_probs, selected_log_probs,mask):
+        self.buffer.push(v_states, o_states, rewards, probs, log_probs, selected_log_probs,mask)
     def _get_global_state(self, v_states, o_states):
         """获取Critic的全局状态表征（无掩码）"""
         
@@ -344,20 +349,69 @@ class MultiAgentAC(torch.nn.Module):
             actor_loss = -(selected_log_probs * advantage).mean() - 0.01 * entropy
             actor_losses.append(actor_loss)
             critic_losses.append(critic_loss)
-        average_actor_loss = sum(actor_losses)/len(actor_losses)
-        average_critic_loss =sum(critic_losses)/len(actor_losses)
+        average_actor_loss = torch.tensor(sum(actor_losses)/len(actor_losses))
+        average_critic_loss =torch.tensor(sum(critic_losses)/len(actor_losses))
         self.actor_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
         torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
         torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
-        average_actor_loss.requires_grad = True
+     
         average_actor_loss.backward()  # 计算策略网络的梯度
         average_critic_loss.backward()  # 计算价值网络的梯度
         self.actor_optimizer.step()  # 更新策略网络的参数
         self.critic_optimizer.step()  # 更新价值网络的参数
         # print(self.actor.state_dict())
         # print(self.critic.state_dict())
+    
+    def update_ppo(self, time, ppo_eposide=30):
+        v_states = torch.tensor(self.buffer.v_states[time:time+1], dtype=torch.float).to(self.device)
+        reward = torch.tensor(self.buffer.rewards[time], dtype=torch.float).to(self.device)
+        old_log_probs = self.buffer.log_probs[time].clone().detach()
+        current_o_states = torch.from_numpy(self.buffer.o_states[time]).float().to(self.device)
+        final_o_states = torch.from_numpy(self.buffer.o_states[time]).float().to(self.device)
+        mask = torch.tensor(self.buffer.masks[time] ,dtype=torch.float).to(self.device)
 
+        current_global = self._get_global_state(v_states[0], current_o_states)
+        current_v = self.critic(current_global)
+        td_target = reward + self.gamma * self.critic(self._get_global_state(v_states[-1], final_o_states))
+        td_delta = td_target - current_v
+        advantage = rl_utils.compute_advantage(self.gamma, 0.95, td_delta.cpu()).to(self.device)
+
+        for _ in range(ppo_eposide):
+            # 每次迭代重新前向计算所有必要变量
+            with torch.no_grad():
+                # 重新计算旧概率以避免复用旧计算图
+                repeated_global = v_states[0].unsqueeze(0).expand(current_o_states.size(0), -1)
+                actor_input = torch.cat([repeated_global, current_o_states], dim=1)
+                old_log_probs = old_log_probs.detach()
+            
+            # 重新计算当前策略的log_probs
+            current_logits = self.actor(actor_input)  # 使用更新后的参数计算
+            if mask is not None:
+                current_logits = current_logits.masked_fill(mask == 0, float('-inf'))
+            current_log_probs = F.log_softmax(current_logits, dim=-1)
+            
+            # 计算PPO损失
+            ratio = torch.exp(current_log_probs - old_log_probs)
+            surr1 = ratio * advantage.detach()  # 分离advantage的梯度
+            surr2 = torch.clamp(ratio, 1 - 0.2, 1 + 0.2) * advantage.detach()
+            actor_loss = -torch.min(surr1, surr2).mean()
+            
+            # 重新计算Critic的损失
+            current_v = self.critic(current_global)
+            critic_loss = F.mse_loss(current_v, td_target.detach())  # 分离td_target
+            
+            # 更新Actor
+            self.actor_optimizer.zero_grad()
+            actor_loss.backward(retain_graph=True)  # 保留计算图供Critic使用
+            torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
+            self.actor_optimizer.step()
+            
+            # 更新Critic
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()  # 不再需要retain_graph
+            torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
+            self.critic_optimizer.step()
 
     
     
