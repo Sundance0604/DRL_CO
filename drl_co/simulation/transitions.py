@@ -1,14 +1,11 @@
 from gurobipy import *
 from typing import Dict
-from gurobipy import *
-from CITY_GRAPH import *
-from CITY_NODE import *
-from ORDER import *
-from VEHICLE import *
-from tool_func import *
-from Lower_Layer import *
-import importlib
-import tool_func
+from drl_co.domain.city_graph import *
+from drl_co.domain.city import *
+from drl_co.domain.order import *
+from drl_co.domain.vehicle import *
+from drl_co.simulation.tools import *
+from drl_co.optimization.lower_layer import *
 
 def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict):
     i = 0
@@ -193,8 +190,3 @@ def path_update(vehicle:Vehicle, G:CityGraph):
             vehicle.longest_path = vehicle.longest_path[1:]
             vehicle.move_to_city(vehicle.longest_path[0])
             vehicle.longest_path = vehicle.longest_path[1:]
-        
-    
-            
-
-    

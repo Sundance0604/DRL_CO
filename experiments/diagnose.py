@@ -9,9 +9,11 @@ from pathlib import Path
 
 import numpy as np
 
-from my_env import DispatchEnv
-from tool_func import city_node_generator, city_update_without_drl
-from train_refactored import load_scenario, solve_lower_layer
+from drl_co.data_io import load_scenario
+from drl_co.environment.dispatch import DispatchEnv
+from drl_co.paths import DEFAULT_SCENARIO
+from drl_co.simulation.tools import city_node_generator, city_update_without_drl
+from experiments.training.train_fixed_id import solve_lower_layer
 
 
 def run_policy(scenario, choose_alternative: bool, horizon: int):
@@ -63,7 +65,7 @@ def run_policy(scenario, choose_alternative: bool, horizon: int):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--scenario", type=Path, default=Path("sample_data.pkl"))
+    parser.add_argument("--scenario", type=Path, default=DEFAULT_SCENARIO)
     parser.add_argument("--horizon", type=int, default=8)
     args = parser.parse_args()
     result = {

@@ -1,7 +1,7 @@
 """Reproducible training entry point for the dispatch + Gurobi experiment.
 
 Run a fast smoke experiment first:
-    python train_refactored.py --episodes 3 --horizon 8 --batch-size 32
+    python -m experiments.training.train_fixed_id --episodes 3 --horizon 8 --batch-size 32
 """
 
 from __future__ import annotations
@@ -17,26 +17,20 @@ import numpy as np
 import torch
 from gurobipy import GRB
 
-from Lower_Layer import Lower_Layer
-from my_env import DispatchEnv
-from rl_features import order_features, vehicle_features
-from sac_agent import MultiOrderSAC
-from tool_func import basic_cost, city_node_generator, city_update_without_drl
-from update import self_update, update_order, update_var, update_vehicle
+from drl_co.data_io import load_scenario
+from drl_co.environment.dispatch import DispatchEnv
+from drl_co.optimization.lower_layer import Lower_Layer
+from drl_co.paths import DEFAULT_SCENARIO
+from drl_co.rl.features import order_features, vehicle_features
+from drl_co.rl.fixed_id_sac import MultiOrderSAC
+from drl_co.simulation.tools import basic_cost, city_node_generator, city_update_without_drl
+from drl_co.simulation.transitions import self_update, update_order, update_var, update_vehicle
 
 
 def seed_everything(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-
-
-def load_scenario(path: Path):
-    import pickle
-
-    with path.open("rb") as handle:
-        data = pickle.load(handle)
-    return data["Vehicles"], data["Total_order"], data["G"]
 
 
 def solve_lower_layer(graph, cities, vehicles, orders, time, cost_matrix):
@@ -262,7 +256,7 @@ def train(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--scenario", type=Path, default=Path("sample_data.pkl"))
+    parser.add_argument("--scenario", type=Path, default=DEFAULT_SCENARIO)
     parser.add_argument("--output-dir", type=Path, default=Path("runs/refactored"))
     parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--horizon", type=int, default=72)

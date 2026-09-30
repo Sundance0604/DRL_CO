@@ -1,4 +1,4 @@
-from scenario_factory import generate_scenario
+from drl_co.simulation.scenarios import generate_scenario
 
 
 def _signature(seed):

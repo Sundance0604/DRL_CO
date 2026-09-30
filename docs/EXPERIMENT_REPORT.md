@@ -2,7 +2,7 @@
 
 ## 设置
 
-- 训练场景：`sample_data.pkl`，24 个时间步。
+- 训练场景：`data/sample_data.pkl`，24 个时间步。
 - 训练随机种子：11、22、33；每个 20 episodes。
 - 每 5 episodes 做一次独立 greedy rollout，不写 replay、不更新参数。
 - 基线：no-op、合法动作均匀随机、按城市可用座位贪心、一步联合分配 MILP。

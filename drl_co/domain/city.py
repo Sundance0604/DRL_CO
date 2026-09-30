@@ -1,7 +1,8 @@
 import logging
-from typing import List
-from VEHICLE import *
-from ORDER import *
+from typing import Dict, List
+
+from drl_co.domain.order import Order
+from drl_co.domain.vehicle import Vehicle
 # 设置日志记录
 logging.basicConfig(level=logging.INFO)
 

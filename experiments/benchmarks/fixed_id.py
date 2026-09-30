@@ -10,8 +10,9 @@ from types import SimpleNamespace
 
 import torch
 
-from evaluate_refactored import evaluate_checkpoint, summarize
-from train_refactored import train
+from drl_co.paths import DEFAULT_SCENARIO
+from experiments.evaluation.evaluate import evaluate_checkpoint, summarize
+from experiments.training.train_fixed_id import train
 
 
 def main():
@@ -25,7 +26,7 @@ def main():
     parser.add_argument("--target-entropy-ratio", type=float, default=0.2)
     parser.add_argument("--initial-alpha", type=float, default=0.1)
     parser.add_argument("--random-rollouts", type=int, default=5)
-    parser.add_argument("--scenario", type=Path, default=Path("sample_data.pkl"))
+    parser.add_argument("--scenario", type=Path, default=DEFAULT_SCENARIO)
     parser.add_argument("--output-dir", type=Path, default=Path("runs/benchmark"))
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--evaluate-only", action="store_true")

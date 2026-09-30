@@ -2,7 +2,7 @@ import numpy as np
 from typing import Dict
 from enum import Enum
 import logging
-from ORDER import *
+from drl_co.domain.order import Order
 
 # 设置日志记录
 logging.basicConfig(level=logging.INFO)

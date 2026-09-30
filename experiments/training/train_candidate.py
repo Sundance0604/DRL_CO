@@ -11,13 +11,15 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from candidate_sac import CandidateSAC
-from evaluate_refactored import _myopic_milp_actions, evaluate_rollout
-from my_env import DispatchEnv
-from rl_features import candidate_features
-from scenario_factory import generate_scenario
-from tool_func import city_node_generator, city_update_without_drl
-from train_refactored import load_scenario, seed_everything, solve_lower_layer
+from drl_co.data_io import load_scenario
+from drl_co.environment.dispatch import DispatchEnv
+from drl_co.paths import DEFAULT_SCENARIO
+from drl_co.rl.candidate_sac import CandidateSAC
+from drl_co.rl.features import candidate_features
+from drl_co.simulation.scenarios import generate_scenario
+from drl_co.simulation.tools import city_node_generator, city_update_without_drl
+from experiments.evaluation.evaluate import _myopic_milp_actions, evaluate_rollout
+from experiments.training.train_fixed_id import seed_everything, solve_lower_layer
 
 
 PRESSURE_CURRICULUM = (
@@ -343,7 +345,7 @@ def train(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--scenario", type=Path, default=Path("sample_data.pkl"))
+    parser.add_argument("--scenario", type=Path, default=DEFAULT_SCENARIO)
     parser.add_argument("--output-dir", type=Path, default=Path("runs/candidate-sac"))
     parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--horizon", type=int, default=24)

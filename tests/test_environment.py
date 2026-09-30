@@ -1,6 +1,6 @@
-from CITY_NODE import City
-from ORDER import Order
-from my_env import DispatchEnv
+from drl_co.domain.city import City
+from drl_co.domain.order import Order
+from drl_co.environment.dispatch import DispatchEnv
 
 
 class TinyGraph:

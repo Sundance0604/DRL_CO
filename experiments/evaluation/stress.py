@@ -10,8 +10,9 @@ from pathlib import Path
 
 import numpy as np
 
-from evaluate_refactored import evaluate_rollout, load_agent
-from scenario_factory import generate_scenario
+from drl_co.paths import DEFAULT_SCENARIO
+from drl_co.simulation.scenarios import generate_scenario
+from experiments.evaluation.evaluate import evaluate_rollout, load_agent
 
 
 PRESSURE_LEVELS = {
@@ -39,7 +40,7 @@ def main():
         help="Run a same-state full MILP for pruning recall diagnostics.",
     )
     parser.add_argument("--horizon", type=int, default=24)
-    parser.add_argument("--training-scenario", type=Path, default=Path("sample_data.pkl"))
+    parser.add_argument("--training-scenario", type=Path, default=DEFAULT_SCENARIO)
     parser.add_argument("--output", type=Path, default=Path("runs/stress/stress-rollouts.csv"))
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()

@@ -17,7 +17,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from drl_sac import EPS, masked_softmax
+from drl_co.rl.discrete_sac import EPS, masked_softmax
 
 
 class CandidateScorer(nn.Module):

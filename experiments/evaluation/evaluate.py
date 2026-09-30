@@ -13,11 +13,13 @@ import numpy as np
 import torch
 from gurobipy import GRB, Model, quicksum
 
-from candidate_sac import CandidateSAC
-from my_env import DispatchEnv
-from rl_features import candidate_features, order_features, vehicle_features
-from tool_func import city_node_generator, city_update_without_drl
-from train_refactored import load_scenario, make_agent, solve_lower_layer
+from drl_co.data_io import load_scenario
+from drl_co.environment.dispatch import DispatchEnv
+from drl_co.paths import DEFAULT_SCENARIO
+from drl_co.rl.candidate_sac import CandidateSAC
+from drl_co.rl.features import candidate_features, order_features, vehicle_features
+from drl_co.simulation.tools import city_node_generator, city_update_without_drl
+from experiments.training.train_fixed_id import make_agent, solve_lower_layer
 
 
 def fleet_pressure(orders, vehicles, capacity):
@@ -470,7 +472,7 @@ def load_agent(checkpoint_path, scenario_path, horizon, capacity, batch_size, de
 
 def evaluate_checkpoint(
     checkpoint_path,
-    scenario_path=Path("sample_data.pkl"),
+    scenario_path=DEFAULT_SCENARIO,
     horizon=72,
     capacity=7,
     batch_size=128,
@@ -515,7 +517,7 @@ def summarize(rows):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("checkpoint", type=Path)
-    parser.add_argument("--scenario", type=Path, default=Path("sample_data.pkl"))
+    parser.add_argument("--scenario", type=Path, default=DEFAULT_SCENARIO)
     parser.add_argument("--horizon", type=int, default=72)
     parser.add_argument("--capacity", type=int, default=7)
     parser.add_argument("--batch-size", type=int, default=128)

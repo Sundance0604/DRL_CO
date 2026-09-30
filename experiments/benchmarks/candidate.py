@@ -10,8 +10,9 @@ from types import SimpleNamespace
 
 import torch
 
-from evaluate_refactored import evaluate_checkpoint, summarize
-from train_candidate_sac import train
+from drl_co.paths import DEFAULT_SCENARIO
+from experiments.evaluation.evaluate import evaluate_checkpoint, summarize
+from experiments.training.train_candidate import train
 
 
 def main():
@@ -29,7 +30,7 @@ def main():
         action=argparse.BooleanOptionalAction,
         default=True,
     )
-    parser.add_argument("--scenario", type=Path, default=Path("sample_data.pkl"))
+    parser.add_argument("--scenario", type=Path, default=DEFAULT_SCENARIO)
     parser.add_argument("--output-dir", type=Path, default=Path("runs/candidate-benchmark"))
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     cli = parser.parse_args()

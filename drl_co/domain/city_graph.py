@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import networkx as nx
 import random
-from ORDER import *
+from drl_co.domain.order import Order
 
 class CityGraph:
 

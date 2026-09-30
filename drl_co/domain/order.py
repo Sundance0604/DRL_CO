@@ -1,6 +1,5 @@
 import logging
 from typing import Tuple
-import CITY_GRAPH as G
 
 # 设置日志记录
 logging.basicConfig(level=logging.INFO)

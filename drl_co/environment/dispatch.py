@@ -5,11 +5,10 @@ except ImportError:  # compatibility with the original environment
     import gym
     from gym import spaces
 import numpy as np
-from CITY_NODE import *
-from VEHICLE import *
-from tool_func import *
-from Lower_Layer import *
-from CITY_GRAPH import *
+from drl_co.domain.city import *
+from drl_co.domain.vehicle import *
+from drl_co.simulation.tools import *
+from drl_co.domain.city_graph import *
 import copy
 
 class DispatchEnv(gym.Env):

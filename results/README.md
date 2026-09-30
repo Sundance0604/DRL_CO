@@ -1,6 +1,6 @@
 # Curated experiment results
 
-This directory contains only the compact artifacts needed to audit the conclusions in the root README and `EXPERIMENT_REPORT.md`. Raw checkpoints, per-episode logs and smoke-test outputs are intentionally excluded; reruns write to the ignored `runs/` directory.
+This directory contains only the compact artifacts needed to audit the conclusions in the root README and [`docs/EXPERIMENT_REPORT.md`](../docs/EXPERIMENT_REPORT.md). Raw checkpoints, per-episode logs and smoke-test outputs are intentionally excluded; reruns write to the ignored `runs/` directory.
 
 | Files | Experiment |
 |---|---|

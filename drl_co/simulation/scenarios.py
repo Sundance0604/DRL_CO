@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import random
 
-from CITY_GRAPH import CityGraph
-from ORDER import Order
-from VEHICLE import Vehicle
+from drl_co.domain.city_graph import CityGraph
+from drl_co.domain.order import Order
+from drl_co.domain.vehicle import Vehicle
 
 
 def generate_scenario(

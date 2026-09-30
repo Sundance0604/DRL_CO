@@ -9,14 +9,15 @@ from pathlib import Path
 
 import torch
 
-from evaluate_refactored import evaluate_rollout, load_agent, summarize
-from scenario_factory import generate_scenario
+from drl_co.paths import DEFAULT_SCENARIO
+from drl_co.simulation.scenarios import generate_scenario
+from experiments.evaluation.evaluate import evaluate_rollout, load_agent, summarize
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("checkpoint", type=Path)
-    parser.add_argument("--training-scenario", type=Path, default=Path("sample_data.pkl"))
+    parser.add_argument("--training-scenario", type=Path, default=DEFAULT_SCENARIO)
     parser.add_argument("--scenario-seeds", default="101,102,103")
     parser.add_argument("--horizon", type=int, default=24)
     parser.add_argument("--batch-size", type=int, default=64)

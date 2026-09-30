@@ -19,7 +19,7 @@
 7. 降低目标熵（ratio `0.2`、初始 alpha `0.1`），避免高熵策略在 greedy 评估时 argmax 退化。
 8. 在高压训练中加入 `normal → moderate → high → extreme → high → extreme` 课程，并默认使用 supply 配对反事实奖励改善信用分配。
 
-更完整的代码级审计见 [DIAGNOSIS.md](DIAGNOSIS.md)，全部实验和负结果见 [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md)。
+更完整的代码级审计见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)，全部实验和负结果见 [docs/EXPERIMENT_REPORT.md](docs/EXPERIMENT_REPORT.md)。
 
 ## 主要实验结果
 
@@ -59,13 +59,13 @@ python -m pytest -q
 最小训练检查：
 
 ```powershell
-python train_candidate_sac.py --episodes 3 --horizon 8 --batch-size 32
+python -m experiments.training.train_candidate --episodes 3 --horizon 8 --batch-size 32
 ```
 
 正式三种子候选 SAC：
 
 ```powershell
-python run_candidate_benchmark.py `
+python -m experiments.benchmarks.candidate `
   --seeds 11,22,33 `
   --episodes 20 `
   --horizon 24 `
@@ -75,7 +75,7 @@ python run_candidate_benchmark.py `
 高压课程 + supply 配对反事实奖励：
 
 ```powershell
-python run_candidate_benchmark.py `
+python -m experiments.benchmarks.candidate `
   --seeds 11,22,33 `
   --episodes 36 `
   --horizon 24 `
@@ -89,7 +89,7 @@ python run_candidate_benchmark.py `
 候选剪枝仅建议用于诊断或更大规模场景：
 
 ```powershell
-python evaluate_stress.py `
+python -m experiments.evaluation.stress `
   --checkpoint-root runs/candidate-curriculum `
   --levels moderate,high,extreme `
   --prune-topks 1,2 `
@@ -113,18 +113,18 @@ r_o = \frac{u_o(a)-u_o(a^{supply})}{1000}
 
 | 路径 | 作用 |
 |---|---|
-| `candidate_sac.py` | 推荐模型：候选共享、置换等变的离散 SAC |
-| `drl_sac.py` | 维护中的 masked discrete SAC 基础实现 |
-| `sac_agent.py` | fixed-ID 旧模型兼容层，用于复现对照 |
-| `my_env.py` | 环境状态、动作落地与城市快照刷新 |
-| `Lower_Layer.py` | Gurobi 车辆—订单联合匹配模型 |
-| `rl_features.py` | 归一化订单/车辆/候选特征 |
-| `scenario_factory.py` | 随机图、车队与订单场景生成 |
-| `train_candidate_sac.py` | 多图训练、压力课程、反事实奖励 |
-| `evaluate_refactored.py` | rollout、基线、Q-MILP 与剪枝评估 |
-| `evaluate_stress.py` | moderate/high/extreme 批量压力测试 |
-| `run_candidate_benchmark.py` | 多随机种子训练和汇总入口 |
-| `train_refactored.py` | fixed-ID SAC 对照与通用求解函数 |
+| `drl_co/domain/` | 城市图、城市、订单和车辆领域对象 |
+| `drl_co/environment/` | Gym 调度环境及动作落地边界 |
+| `drl_co/optimization/` | Gurobi 车辆—订单联合匹配模型 |
+| `drl_co/rl/` | candidate SAC、masked discrete SAC、特征和 fixed-ID 兼容模型 |
+| `drl_co/simulation/` | 场景生成、城市快照、状态推进和通用仿真工具 |
+| `drl_co/data_io.py` | 样例场景加载和旧 pickle 模块路径兼容 |
+| `experiments/training/` | candidate SAC 与 fixed-ID SAC 训练入口 |
+| `experiments/evaluation/` | rollout、held-out、压力测试、Q-MILP 与剪枝评估 |
+| `experiments/benchmarks/` | 多随机种子基准实验入口 |
+| `experiments/analysis/` | 各阶段实验结果分析脚本 |
+| `docs/` | 根因审计和完整实验报告 |
+| `data/` | 版本化的小型样例场景 |
 | `tests/` | 环境、SAC、置换等变、场景与反事实测试 |
 | `results/` | 精简后的最终 CSV 与图，不含 checkpoint |
 

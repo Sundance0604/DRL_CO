@@ -1,10 +1,10 @@
 import numpy as np
 import torch
 
-from candidate_sac import CandidateSAC, CandidateScorer
-from evaluate_refactored import build_actor_candidate_mask, standardize_action_values
-from scenario_factory import generate_scenario
-from train_candidate_sac import curriculum_level, solve_supply_counterfactual
+from drl_co.rl.candidate_sac import CandidateSAC, CandidateScorer
+from drl_co.simulation.scenarios import generate_scenario
+from experiments.evaluation.evaluate import build_actor_candidate_mask, standardize_action_values
+from experiments.training.train_candidate import curriculum_level, solve_supply_counterfactual
 
 
 def test_candidate_scorer_is_permutation_equivariant():

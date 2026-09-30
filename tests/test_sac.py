@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from sac_agent import MultiOrderSAC, masked_softmax
+from drl_co.rl.fixed_id_sac import MultiOrderSAC, masked_softmax
 
 
 def test_masked_softmax_masks_and_normalizes():

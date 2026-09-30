@@ -231,7 +231,7 @@ class MultiOrderSAC(nn.Module):
 
 # The maintained implementation overrides the historical definitions above.
 # Keeping this shim lets old notebooks continue importing ``sac_agent``.
-from drl_sac import (  # noqa: E402,F401
+from drl_co.rl.discrete_sac import (  # noqa: E402,F401
     DiscretePolicyNet,
     MultiOrderSAC,
     QNet,
