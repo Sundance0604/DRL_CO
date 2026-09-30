@@ -1,5 +1,9 @@
-import gym
-from gym import spaces
+try:
+    import gymnasium as gym
+    from gymnasium import spaces
+except ImportError:  # compatibility with the original environment
+    import gym
+    from gym import spaces
 import numpy as np
 from CITY_NODE import *
 from VEHICLE import *
@@ -24,13 +28,17 @@ class DispatchEnv(gym.Env):
         车辆状态空间：
         车辆id即为行号，其decision，capacity、电量状态（建议更替为百分比）、intercity与intocity
         """
-        self.vehicle_state = spaces.Discrete(
-           len(self.vehicles)*11
+        self.vehicle_state = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(len(self.vehicles), 11), dtype=np.float32
         )
         #  期数，是否被匹配，载客数，在哪个城市
-        self.order_state = spaces.Discrete(
-            len(self.orders)*12
+        self.order_state = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(len(self.orders), 12), dtype=np.float32
         )
+        self.observation_space = spaces.Dict({
+            "vehicles": self.vehicle_state,
+            "orders": self.order_state,
+        })
         # 动作空间：为每个订单分配虚拟出发地点（连续或离散）
         # 动作空间：矩阵形式，每个订单可以从多个城市选择一个出发地点
         self.action_space = spaces.MultiDiscrete([len(self.cities)] * len(self.orders))
@@ -211,62 +219,63 @@ class DispatchEnv(gym.Env):
                     
         return reward  # 记住还需调用gurobi求解合理匹配下的值
     
-    def test_step(self, orders_unmatched, actions):
-        reward = 0
-        i= 0 
-        for order in orders_unmatched.values():
-            _, path_order = self.G.get_intercity_path(*order.route())
-            # 表示不可目的地
-            if order.destination == actions[i]:
-                reward += -1
-                order.virtual_departure =  order.departure
-            # 表示不可非邻接
-            elif actions[i] not in self.G.get_neighbors(order.departure):
-                reward += -1
-                order.virtual_departure =  order.departure
-            # 表示不可在前驱
-            elif actions[i] == path_order[1]:
-                reward += -1
-                order.virtual_departure =  order.departure
+    def apply_actions(self, orders_unmatched, actions, strict=True):
+        """Apply policy actions and refresh the city view used by Gurobi.
+
+        The historical training loop changed ``order.virtual_departure`` after
+        building ``self.cities`` (and the final SAC notebook did not apply the
+        actions at all).  Consequently the lower-layer model could not observe
+        the policy decision.  This method is now the only action boundary.
+
+        Returns one validation reward per order (0 for valid, -1 for a fallback).
+        The actual learning reward should be computed after the lower-layer
+        solve, when matching success and profit are known.
+        """
+        orders = list(orders_unmatched.values())
+        if len(actions) != len(orders):
+            raise ValueError(f"received {len(actions)} actions for {len(orders)} active orders")
+
+        mask = self.get_mask(orders_unmatched)
+        validation_rewards = []
+        for index, (order, action) in enumerate(zip(orders, actions)):
+            action = int(action)
+            valid = 0 <= action < mask.shape[1] and bool(mask[index, action])
+            if not valid and strict:
+                raise ValueError(f"invalid action {action} for order {order.id}")
+            if not valid:
+                action = order.departure
+                validation_rewards.append(-1.0)
             else:
-                order.virtual_departure = actions[i]
-            i += 1
-        return reward
+                validation_rewards.append(0.0)
+            order.virtual_departure = action
+
+        # Lower_Layer reads the city buckets, not the Order objects directly.
+        city_update_without_drl(self.cities, self.vehicles, orders_unmatched, self.time)
+        return validation_rewards
+
+    def test_step(self, orders_unmatched, actions):
+        """Backward-compatible action application used by old notebooks."""
+        return sum(self.apply_actions(orders_unmatched, actions, strict=False))
     
-    def dynamic_step(self, total_orders, actions, mask):
-        reward = 1000
-        i = 0
-        for i, order in enumerate(total_orders.values()):
-            if mask[0,1] == True:
-                _, path_order = self.G.get_intercity_path(*order.route())
-                if order.destination == actions[i]:
-                    reward += -100
-                    order.virtual_departure =  order.departure
-                elif actions[i] not in self.G.get_neighbors(order.departure):
-                    reward += -100
-                    order.virtual_departure =  order.departure
-                elif actions[i] == path_order[1]:
-                    reward += -100
-                    order.virtual_departure =  order.departure
-                else:
-                    order.virtual_departure = actions[i]
-                i += 1
-        return reward
+    def dynamic_step(self, total_orders, actions, mask=None):
+        penalties = self.apply_actions(total_orders, actions, strict=False)
+        return 1000.0 + 100.0 * sum(penalties)
     
     def get_mask(self, orders_unmatched):
-        
-        i= 0 
-        mask = np.ones((len(orders_unmatched), len(self.cities)))
-        for order in orders_unmatched.values():
-            _, path_order = self.G.get_intercity_path(*order.route())
-            for j in range(len(self.cities)):
-                if order.destination == j:
-                    mask[i][j] = 0
-                elif j not in self.G.get_neighbors(order.departure):
-                    mask[i][j] = 0
-                elif j == path_order[1]:
-                    mask[i][j] = 0
-            i += 1
+        """Return valid virtual-departure actions in stable dictionary order.
+
+        Keeping the real departure is always available and represents the
+        no-relocation baseline.  This also guarantees that every row contains
+        an action, which a masked categorical policy requires.
+        """
+        mask = np.zeros((len(orders_unmatched), len(self.cities)), dtype=np.bool_)
+        for index, order in enumerate(orders_unmatched.values()):
+            mask[index, order.departure] = True
+            path_result = self.G.get_intercity_path(*order.route())
+            next_on_shortest_path = path_result[1][1] if path_result and len(path_result[1]) > 1 else None
+            for city_id in self.G.get_neighbors(order.departure):
+                if city_id != order.destination and city_id != next_on_shortest_path:
+                    mask[index, city_id] = True
         return mask
     
     def cities_reload(self, cities):

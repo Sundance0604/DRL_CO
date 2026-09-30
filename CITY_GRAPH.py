@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import networkx as nx
 import random
 from ORDER import *

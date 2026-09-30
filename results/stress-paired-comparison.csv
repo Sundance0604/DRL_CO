@@ -1,0 +1,7 @@
+pressure,baseline,scenarios,sac_wins,mean_difference,median_difference
+moderate,supply,3,1,-6620.555555555562,-7686.333333333343
+moderate,myopic_milp,3,1,-2817.555555555562,-882.6666666666861
+high,supply,7,1,-13863.619047619044,-8257.666666666657
+high,myopic_milp,7,5,8004.095238095241,8994.0
+extreme,supply,7,3,-2431.1428571428573,-1844.0
+extreme,myopic_milp,7,5,5633.714285714285,4471.0

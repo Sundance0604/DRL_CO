@@ -88,7 +88,7 @@ class Lower_Layer:
 
         # 最多只能被一辆车匹配
         self.model.addConstrs(
-            (sum(self.X_Order[order.id, vehicle_id] for vehicle_id in range(self.num_vehicle)) <= 1 
+            (sum(self.X_Order[order.id, vehicle_id] for vehicle_id in range(self.num_vehicle)) <= 1
             for order in self.Order.values()),
             name="constrain_3_0"
             
@@ -112,9 +112,9 @@ class Lower_Layer:
                 _, path_order2 = self.city_graph.get_intercity_path(*order2.virtual_route())
                 if  list_str(path_order1) not in list_str(path_order2) and list_str(path_order2) not in list_str(path_order1):
                     self.model.addConstrs(
-                        (self.X_Order[order1.id, vehicle.id] + self.X_Order[order1.id, vehicle.id] <= 1
+                        (self.X_Order[order1.id, vehicle.id] + self.X_Order[order2.id, vehicle.id] <= 1
                             for vehicle in city.vehicle_available.values()),
-                        name=f"constrain_3_1_order_contain_1"
+                        name=f"constrain_3_1_incompatible_{order1.id}_{order2.id}"
                     )
                 
                 
@@ -238,21 +238,42 @@ class Lower_Layer:
             办法一：限制连续dispatching次数，可以在vehicle中增加记录功能
             一种办法：约束函数仅对每个城市构建，而非全局
         """
-        try:
-            order_revenue = quicksum(self.X_Vehicle[v, 0]*self.X_Order[order.id, v] * order.revenue for order in self.Order.values() for v in self.group[0])
-        except:
-            for order in self.Order.values():
-                for v in self.group[0]:
-                    try:
-                        # 打印当前下标
-                        print(f"o: {order.id}, v: {v}")
-                        # 访问目标值，模拟表达式
-                        _ = self.X_Vehicle[v, 0] * self.X_Order[order.id, v] * order.revenue
-                    except IndexError as e:
-                        print(f"IndexError with o={order.id}, v={v}: {e}")
-                        raise
+        # X_Order implies dispatching through constrain_3_3/constrain_5, so the
+        # old X_Vehicle * X_Order product was redundant and unnecessarily made
+        # this a non-convex quadratic model.
+        matched_by_order = {
+            order.id: quicksum(self.X_Order[order.id, v] for v in self.group[0])
+            for order in self.Order.values()
+        }
+        order_revenue = quicksum(
+            matched_by_order[order.id] * order.revenue
+            for order in self.Order.values()
+        )
+
+        # Every assignment must be made by a dispatching vehicle physically
+        # available at the order's virtual departure.  The historical model
+        # only added constraints for vehicles already inside each city loop,
+        # leaving all other X_Order variables free to create fake matches.
+        for order in self.Order.values():
+            available_ids = set(
+                self.city_node[order.virtual_departure].vehicle_available
+            )
+            for vehicle in self.Vehicle.values():
+                self.model.addConstr(
+                    self.X_Order[order.id, vehicle.id]
+                    <= self.X_Vehicle[vehicle.id, 0],
+                    name=f"constrain_3_dispatch_{order.id}_{vehicle.id}",
+                )
+                if vehicle.id not in available_ids:
+                    self.model.addConstr(
+                        self.X_Order[order.id, vehicle.id] == 0,
+                        name=f"constrain_3_location_{order.id}_{vehicle.id}",
+                    )
         vehicle_cost = quicksum(self.X_Vehicle[v, c] * cost_matrix[v][c] for v in range(self.num_vehicle) for c in range(0,4))
-        order_penalty = quicksum(1 - quicksum(self.X_Order[order.id, v] for v in self.group[0]) * order.penalty for order in self.Order.values())
+        order_penalty = quicksum(
+            (1 - matched_by_order[order.id]) * order.penalty
+            for order in self.Order.values()
+        )
 
         self.model.setObjective(order_revenue - vehicle_cost - order_penalty, GRB.MAXIMIZE)
     def get_real_id(self):

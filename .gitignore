@@ -1,0 +1,17 @@
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.egg-info/
+.coverage
+htmlcov/
+*.pth
+*.pt
+runs/
+output_files/
+.remote-audit/
+.idea/
+.vscode/
+.DS_Store
+*.ilp
+*.npz
+vehicle_records.csv
