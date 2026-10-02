@@ -1,0 +1,508 @@
+% --------------------------------------------------------------
+% main_v2.tex -- working model document, rewritten 2026-09-30.
+% The earlier memo is kept unchanged in main.tex.
+% This version replaces the two-level design (RL chooses a virtual
+% departure city, a lower-level model matches vehicles and orders)
+% with a single-level matching MILP that includes cross-hub pickup.
+% Compile with XeLaTeX (xeCJK is needed for the author name).
+% --------------------------------------------------------------
+
+\documentclass[12pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{xeCJK,amsmath,amsthm,amssymb}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{mathrsfs}
+\usepackage{booktabs}
+
+\usepackage{ebgaramond}
+
+\usepackage{fontspec}
+\usepackage{graphicx}
+\linespread{1.3}
+
+\theoremstyle{plain}
+\newtheorem{proposition}{Proposition}
+\theoremstyle{definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{remark}{Remark}
+
+% notation shortcuts
+\newcommand{\dep}{u^{\mathrm{dep}}}
+\newcommand{\des}{u^{\mathrm{des}}}
+\newcommand{\Kidle}{\mathcal{K}^{\mathrm{idle}}_t}
+\newcommand{\Ktrip}{\mathcal{K}^{\mathrm{trip}}_t}
+\newcommand{\Kdec}{\mathcal{K}_t}
+\newcommand{\Oexp}{\mathcal{O}^{\mathrm{exp}}_t}
+\newcommand{\subpath}{\sqsubseteq}
+
+\begin{document}
+
+\title{Dispatching Automated Line-Haul Vehicles in an HV--AV--HV Intercity Ride-Pooling Service: A Single-Level Matching Model\\[4pt]
+\large Working model document, version 2}
+\author{刘若水}
+\date{}
+
+\maketitle
+
+\section{Problem Description}
+
+\subsection{The HV--AV--HV service}
+
+We consider an on-demand intercity ride-pooling service run by one company with its own fleet. Each trip is served in three segments. In the origin city, human-driven vehicles (HVs) collect passengers and bring them to a highway hub. Automated vehicles (AVs) then carry the passengers between hubs on the highway network, and several orders can share one AV. In the destination city, HVs take the passengers from the hub to their final addresses. We call this the HV--AV--HV service.
+
+This document models the middle segment. In every decision period the operator decides, for the AV fleet, which orders each vehicle serves, from which hub it picks them up, and whether an idle vehicle waits or moves empty to another hub. The model is a single mixed-integer linear program (MILP) per period. The two city segments are not optimized here, but they shape the problem: where and when demand arises inside a city determines when each order is ready at its hub, and therefore which orders can be pooled there.
+
+\begin{assumption}[City segments are not optimized]\label{as:exo}
+In every city the operator runs the first mile as collection tours: the orders booked in one collection period are collected by one HV, or by several if they exceed its seats, and brought to the hub together. The collection rule is fixed in advance; the resulting hub arrival time of a tour is known when the tour is formed, and an upper bound on it is known at booking. The last mile starts when the passengers reach the destination hub and has no influence on the line-haul decisions.
+\end{assumption}
+
+\begin{assumption}[Central control]\label{as:central}
+All vehicles belong to the operator and follow its instructions. No driver or vehicle makes a strategic choice.
+\end{assumption}
+
+Assumption~\ref{as:exo} lets us state the line-haul model on its own; Section~\ref{sec:open} lists what it leaves out. Assumption~\ref{as:central} follows from the ownership structure and from automated driving on the highway segment.
+
+\subsection{Network, time and fleet}
+
+The highway network is an undirected graph $G=(\mathcal{U},\mathcal{L})$. A node $u\in\mathcal{U}$ is a hub, one per city, and a link $(u,v)\in\mathcal{L}$ is a highway section of length $\ell_{uv}$. Let $\mathcal{A}$ be the set of directed arcs obtained by giving each link both directions. For two hubs $u$ and $v$, $P(u,v)$ denotes the shortest path from $u$ to $v$, written as a sequence of hubs, and $d(u,v)$ its length.
+
+\begin{assumption}[Consistent shortest paths]\label{as:path}
+The paths $\{P(u,v)\}$ are fixed in advance, and every contiguous subpath of $P(u,v)$ is the selected path between its own end hubs. This holds, for example, when shortest paths are unique.
+\end{assumption}
+
+Time is divided into periods $t\in\mathcal{T}=\{0,1,\dots,T-1\}$ of equal length. Decisions are taken at the start of each period. Traversing link $(u,v)$ takes $\tau_{uv}\in\{1,2,\dots\}$ periods, and $\tau(u,v)$ is the sum of the link times along $P(u,v)$, with $\tau(u,u)=0$. A vehicle that leaves hub $u$ at the start of period $t$ along link $(u,v)$ is at hub $v$ at the start of period $t+\tau_{uv}$. Travel times are deterministic. Because link times are whole periods, a moving vehicle is always either on a link or at a hub at the start of a period.
+
+The fleet $\mathcal{K}$ consists of identical AVs with $Q$ seats each. The current implementation uses $Q=7$. The fleet size is fixed during the operating day. Vehicles follow the paths $P(\cdot,\cdot)$ and pass through every intermediate hub on their way. Energy and charging are left out of this version; see Section~\ref{sec:open}.
+
+\subsection{Demand in the cities and orders}\label{sec:demand}
+
+Demand arises inside the cities. City $u$ occupies a region $\mathcal{C}_u$ of the plane, and its hub lies at the point $h_u$ where the highway meets the city. Trips that start in city $u$ are booked at rate $\lambda_u(t)$ per period. The pickup location of a booking is drawn from a spatial density $\psi_u$ on $\mathcal{C}_u$, which describes how demand is spread over the city.
+
+An order $o$ is a group of $n_o$ passengers who travel together from a pickup location $\zeta_o\in\mathcal{C}_{\dep_o}$ in the origin city to the destination city; $\dep_o$ and $\des_o\neq\dep_o$ denote the two hubs. The order is booked at time $g_o$. At booking the operator learns the pickup location, the group size, the destination hub and the latest time $b_o$ at which the passengers accept to arrive at the destination hub.
+
+\paragraph{Collection tours and the ready time at the origin hub.} The first mile is organized in collection periods of length $H_u$. The orders of city $u$ booked during one collection period form a batch; at the end of the period, the cutoff $\theta$, an HV with $Q^{\mathrm{H}}$ seats leaves the hub, collects the passengers of the batch at their pickup locations and returns to the hub. If the batch exceeds $Q^{\mathrm{H}}$ seats it is split into several tours, each with its own HV. All orders of a tour reach the hub together, at time
+\begin{equation}\label{eq:ready}
+a_o=\theta+T_u(\text{tour}),
+\end{equation}
+where $T_u(\text{tour})$ is the duration of the tour. For planning purposes the duration of a tour with $n$ stops can be approximated by the continuum approximation of the travelling-salesman tour length,
+\begin{equation}\label{eq:firstmile}
+T_u(n)\approx\frac{2r_u+k(n)\sqrt{n\,A_u}}{v^{\mathrm{c}}}+n\,\tau^{\mathrm{s}},
+\end{equation}
+where $r_u$ is the distance from the hub to the centre of the city region, $A_u$ its area, $v^{\mathrm{c}}$ the travel speed in the city, $\tau^{\mathrm{s}}$ the stop time per order, and $k(n)$ a constant near $0.9$ for the small $n$ that occur here (about $0.71$ as $n\to\infty$). The first term is the drive from the hub to the demand and back, which appears once per tour; the second is the detour between stops, which grows with the square root of their number. In the numerical prototype short tours are computed exactly and \eqref{eq:firstmile} is used only for tours with more than five stops.
+
+The ready time is thus not a free parameter: it follows from the collection period, from how far from the hub the demand arises and from how many orders share the tour. Two consequences matter for the line haul. Orders reach a hub in lumps, one tour at a time, so the pooling opportunities at a hub are shaped by $H_u$. And the operator has advance notice: from the booking it knows the hub, the batch and the cutoff, and it can bound the ready time from above by the longest tour,
+\begin{equation}\label{eq:readybound}
+\bar a_o=\theta+T_u(Q^{\mathrm{H}})\ \ge\ a_o ;
+\end{equation}
+the exact value $a_o$ becomes known at the cutoff, when the tour is formed. We write $\hat a_o(t)$ for the ready time that the operator plans with in period $t$: $\hat a_o(t)=\bar a_o$ for $t<\theta$ and $\hat a_o(t)=a_o$ for $t\ge\theta$. A plan that is feasible with the bound stays feasible when the exact time becomes known, since $a_o\le\bar a_o$.
+
+\paragraph{Deadline at the destination hub.} The latest arrival time $b_o$ is stated by the passengers at booking. It cannot be earlier than what is physically possible.
+
+\begin{assumption}[Feasible deadlines]\label{as:deadline}
+Every accepted order satisfies
+\begin{equation}\label{eq:deadline}
+b_o\ \ge\ \lceil\bar a_o\rceil+\tau(\dep_o,\des_o),
+\end{equation}
+that is, a vehicle that waits at the origin hub and leaves in the first period in which the passengers can be there delivers the order on time, whatever the tour turns out to be. A booking that violates \eqref{eq:deadline} is not accepted.
+\end{assumption}
+
+The difference $\sigma_o=b_o-\lceil a_o\rceil-\tau(\dep_o,\des_o)\ge 0$ is the slack of the order: the number of periods it can wait at the hub or lose to a later pickup.
+
+The operator collects the fare $f_o$ if it serves the order. We write $A_o\subseteq\mathcal{A}$ for the set of directed arcs on $P(\dep_o,\des_o)$.
+
+The order pool $\mathcal{O}_t$ contains the orders that are booked by the start of period $t$ and are neither assigned nor cancelled. It includes orders whose batch has not yet been collected. An order that stays in the pool for one more period costs a waiting penalty $\pi_o$. An order is cancelled when it can no longer be delivered on time, and a cancelled order costs $\phi_o$. The orders that will be cancelled at the end of period $t$ unless they are assigned in period $t$ form the set
+\begin{equation}\label{eq:oexp}
+\Oexp=\bigl\{o\in\mathcal{O}_t:\ \max\{t+1,\hat a_o(t)\}+\tau(\dep_o,\des_o)>b_o\bigr\}.
+\end{equation}
+In other words, an order expires when even a vehicle waiting at its origin hub in the next period would deliver it too late.
+
+\section{Fleet State}\label{sec:state}
+
+At the start of period $t$ each vehicle $k$ is in one of three situations.
+\begin{itemize}
+    \item \emph{Idle at a hub.} The vehicle is empty, has no assigned orders and stands at hub $c_k$. These vehicles form the set $\Kidle$.
+    \item \emph{On a trip and at a hub.} The vehicle stands at hub $c_k$ and has assigned orders that are on board or will be picked up further along its route. Its remaining route is the path $\bar P_k=P(c_k,\bar e_k)$ to its current end hub $\bar e_k$, and $\bar q_{ka}$ is the number of seats already assigned on arc $a$ of that route, with $\bar q_{ka}=0$ for all other arcs. The vehicle leaves the hub after $\bar\nu_k\ge 0$ more periods: $\bar\nu_k=0$ for a vehicle that is passing through, and $\bar\nu_k>0$ for a vehicle that has taken orders and waits at its hub for them. These vehicles form the set $\Ktrip$.
+    \item \emph{On a link,} or waiting and moving empty towards a pickup hub or a repositioning target. These vehicles take no decision in period $t$.
+\end{itemize}
+The vehicles that take a decision are $\Kdec=\Kidle\cup\Ktrip$. For an idle vehicle we set $\bar q_{ka}=0$ for all arcs.
+
+A vehicle on a trip that passes a hub can therefore take additional orders there or further along its route. This is how pooling at intermediate hubs enters the model.
+
+\section{The Single-Level Matching Model}\label{sec:model}
+
+The model for period $t$ assigns the orders in the pool to the deciding vehicles and chooses a route for each vehicle. We first describe the routes a vehicle may take and the orders each route can serve. Both are computed before the optimization, so the MILP contains only binary choice variables.
+
+\subsection{Candidate routes}
+
+A route of an idle vehicle $k\in\Kidle$ is a triple $r=(p_r,e_r,\nu_r)$ of a pickup hub, an end hub and a departure delay. The vehicle waits $\nu_r$ periods at its hub $c_k$, drives empty to $p_r$ along $P(c_k,p_r)$ and then follows the loaded path $B_r=P(p_r,e_r)$, which we call the backbone of the route. The pickup hub is either the vehicle's own hub or a hub within the pickup radius $\rho$, and the delay is at most $\bar\nu$ periods:
+\begin{equation}\label{eq:routes-idle}
+\mathcal{R}_{k}=\bigl\{(p,e,\nu):\ p\in\{c_k\}\cup\mathcal{N}_\rho(c_k),\ e\in\mathcal{U}\setminus\{p\},\ \nu\in\{0,\dots,\bar\nu\}\bigr\},
+\end{equation}
+where $\mathcal{N}_\rho(u)=\{v\neq u:\ d(u,v)\le\rho\}$. With $p_r=c_k$ the vehicle serves orders from its own hub. With $p_r\neq c_k$ it performs a cross-hub pickup: it travels to the neighbouring hub, which takes $\tau(c_k,p_r)$ periods and costs the empty-running distance $d(c_k,p_r)$. The radius $\rho$ is a policy parameter. Setting $\rho=0$ removes cross-hub pickup.
+
+The delay $\nu_r$ is what connects the line haul to the first mile. With $\nu_r>0$ the operator can commit a vehicle to a batch that is still being collected and let the vehicle leave when the tour has reached the hub; the departure $t+\nu_r\ge\hat a_o(t)$ is the synchronization of the two segments, with the wait at the hub as its slack. For a cross-hub pickup the empty drive can overlap with the collection tour, so that the vehicle and the passengers reach the hub at about the same time.
+
+A vehicle on a trip, $k\in\Ktrip$, may keep its remaining route, denoted $\bar r_k$ with backbone $\bar P_k$ and end hub $\bar e_k$, or extend it to a farther end hub. An extension to hub $e$ is allowed only if the vehicle does not have to leave its current route, that is, if
+\begin{equation}\label{eq:extension}
+d(c_k,e)=d(c_k,\bar e_k)+d(\bar e_k,e).
+\end{equation}
+By Assumption~\ref{as:path} the backbone of the extended route is then $P(c_k,e)$, which starts with $\bar P_k$. The route set $\mathcal{R}_k$ of a vehicle on a trip contains $\bar r_k$ and all extensions that satisfy \eqref{eq:extension}. For these routes we set $p_r=c_k$ and $\nu_r=\bar\nu_k$: a vehicle on a trip keeps its departure period.
+
+Given route $r$, the time at which vehicle $k$ reaches a hub $h$ on the backbone is known:
+\begin{equation}\label{eq:arrival}
+T_{kr}(h)=t+\nu_r+\tau(c_k,p_r)+\tau(p_r,h),\qquad h\in B_r.
+\end{equation}
+The first term is the current period, the second the wait at the hub, the third the empty drive to the pickup hub, and the fourth the loaded drive along the backbone.
+
+The cost of route $r$ for vehicle $k$ is
+\begin{equation}\label{eq:routecost}
+C_{kr}=
+\begin{cases}
+c^{\mathrm{w}}\,\nu_r+c^{\mathrm{e}}\,d(c_k,p_r)+c^{\mathrm{l}}\,d(p_r,e_r), & k\in\Kidle,\\[2pt]
+c^{\mathrm{l}}\,d(\bar e_k,e_r), & k\in\Ktrip,
+\end{cases}
+\end{equation}
+where $c^{\mathrm{e}}$ and $c^{\mathrm{l}}$ denote the cost per unit distance of an empty and of a loaded vehicle. For a vehicle on a trip only the extension is charged, because the cost of the remaining route was charged when that route was chosen; keeping the route costs $C_{k\bar r_k}=0$.
+
+\subsection{Orders that a route can serve}
+
+Order $o\in\mathcal{O}_t$ can be served by vehicle $k$ on route $r$ if its path lies on the backbone in the direction of travel and the vehicle meets its two time limits. We write $P\subpath B$ when $P$ is a contiguous subpath of $B$ traversed in the same direction. The set of orders that route $r$ of vehicle $k$ can serve is
+\begin{equation}\label{eq:okr}
+\mathcal{O}_{kr}=\bigl\{o\in\mathcal{O}_t:\ P(\dep_o,\des_o)\subpath B_r,\ \ T_{kr}(\dep_o)\ge \hat a_o(t),\ \ T_{kr}(\des_o)\le b_o\bigr\}.
+\end{equation}
+The first condition keeps the route fixed: the vehicle never leaves the backbone for an order. The second states that the passengers have finished their first mile and are at the hub when the vehicle arrives or leaves there, using the ready time known in period $t$; and the third that they reach the destination hub in time. The wait $\nu_r$ and, for a cross-hub pickup, the empty drive shift both times through \eqref{eq:arrival}.
+
+\subsection{Decision variables}
+
+\begin{itemize}
+    \item $x_{ok}\in\{0,1\}$ equals one if order $o\in\mathcal{O}_t$ is assigned to vehicle $k\in\Kdec$.
+    \item $y_{kr}\in\{0,1\}$ equals one if vehicle $k\in\Kdec$ takes route $r\in\mathcal{R}_k$.
+    \item $z_{kj}\in\{0,1\}$ equals one if idle vehicle $k\in\Kidle$ moves empty to hub $j\neq c_k$ without an order.
+    \item $w_k\in\{0,1\}$ equals one if idle vehicle $k\in\Kidle$ waits at its hub.
+    \item $s_o\in\{0,1\}$ equals one if order $o\in\mathcal{O}_t$ is left unassigned in period $t$.
+\end{itemize}
+
+\subsection{Formulation}
+
+Let $\mathcal{R}^{+}_k$ denote the routes of vehicle $k$ that are chosen anew in period $t$: $\mathcal{R}^{+}_k=\mathcal{R}_k$ for an idle vehicle and $\mathcal{R}^{+}_k=\mathcal{R}_k\setminus\{\bar r_k\}$ for a vehicle on a trip. The period-$t$ model, referred to as $(\mathrm{M}_t)$, is the following MILP.
+\begin{align}
+\max\quad
+& \sum_{o\in\mathcal{O}_t}\sum_{k\in\Kdec} f_o\,x_{ok}
+ -\sum_{k\in\Kdec}\sum_{r\in\mathcal{R}_k} C_{kr}\,y_{kr} \notag\\
+& -\sum_{k\in\Kidle}\sum_{j\neq c_k} c^{\mathrm{e}}\,d(c_k,j)\,z_{kj}
+ -c^{\mathrm{w}}\sum_{k\in\Kidle} w_k \notag\\
+& -\sum_{o\in\mathcal{O}_t}\pi_o\,s_o
+ -\sum_{o\in\Oexp}\phi_o\,s_o \label{eq:obj}\\[4pt]
+\text{s.t.}\quad
+& \sum_{k\in\Kdec} x_{ok}+s_o=1 && \forall o\in\mathcal{O}_t, \label{eq:assign}\\
+& \sum_{r\in\mathcal{R}_k} y_{kr}+\sum_{j\neq c_k} z_{kj}+w_k=1 && \forall k\in\Kidle, \label{eq:oneidle}\\
+& \sum_{r\in\mathcal{R}_k} y_{kr}=1 && \forall k\in\Ktrip, \label{eq:onetrip}\\
+& x_{ok}\le\sum_{r\in\mathcal{R}_k:\ o\in\mathcal{O}_{kr}} y_{kr} && \forall o\in\mathcal{O}_t,\ k\in\Kdec, \label{eq:cover}\\
+& \sum_{o\in\mathcal{O}_t:\ a\in A_o} n_o\,x_{ok}\le Q-\bar q_{ka} && \forall k\in\Kdec,\ a\in\mathcal{A}, \label{eq:seats}\\
+& y_{kr}\le\sum_{o\in\mathcal{O}_{kr}:\ \dep_o=p_r} x_{ok} && \forall k\in\Kidle,\ r\in\mathcal{R}_k, \label{eq:anchor-start}\\
+& y_{kr}\le\sum_{o\in\mathcal{O}_{kr}:\ \des_o=e_r} x_{ok} && \forall k\in\Kdec,\ r\in\mathcal{R}^{+}_k, \label{eq:anchor-end}\\
+& x_{ok},\,y_{kr},\,z_{kj},\,w_k,\,s_o\in\{0,1\}. \label{eq:binary}
+\end{align}
+
+The objective \eqref{eq:obj} is the profit of period $t$: the fares of the orders assigned in this period, minus the cost of the chosen routes, of empty repositioning and of waiting vehicles, minus the waiting penalty of every order left in the pool and the cancellation penalty of the unassigned orders that expire. The parameter $c^{\mathrm{w}}$ is the cost of one vehicle waiting for one period.
+
+Constraints \eqref{eq:assign} state that each order is assigned to at most one vehicle or stays unassigned. Constraints \eqref{eq:oneidle} state that an idle vehicle takes a route, moves empty to another hub, or waits. Constraints \eqref{eq:onetrip} state that a vehicle on a trip keeps its route or chooses one extension. Constraints \eqref{eq:cover} allow an order to be assigned to a vehicle only if the vehicle's chosen route can serve it. Since a vehicle chooses one route, all orders assigned to it lie on the same backbone. Constraints \eqref{eq:seats} limit the passengers on every arc to the seats that are still free; because the backbone is a shortest path, it uses each arc at most once, so one constraint per arc suffices. Constraints \eqref{eq:anchor-start} and \eqref{eq:anchor-end} require that a newly chosen route starts at the origin hub of one of its orders and ends at the destination hub of one of its orders; for an extension only the new end hub needs an order. They rule out loaded routes without passengers at either end; moving without an order is possible only through $z_{kj}$.
+
+In other words, $(\mathrm{M}_t)$ chooses the pickup hub, the route and the orders of every vehicle at once. The pickup hub is not a separate decision layer.
+
+\subsection{Remarks}
+
+\begin{remark}[Relation to the virtual departure city]
+In the earlier formulation a learning agent gave each order a virtual departure city, and only vehicles in that city could be matched with the order. In $(\mathrm{M}_t)$ the same choice is the assignment $x_{ok}=1$ of order $o$ to a vehicle whose hub $c_k$ differs from $\dep_o$. The difference is that the vehicle now drives to the real origin hub: the drive takes $\tau(c_k,\dep_o)$ periods, costs $c^{\mathrm{e}}d(c_k,\dep_o)$ and is included in the two time limits of \eqref{eq:okr}. The rule that excluded the next hub on the order's own shortest path from the candidate cities is no longer needed, because a detour is now priced.
+\end{remark}
+
+\begin{remark}[Special cases]
+With $\rho=0$ every vehicle serves only orders from its own hub. With $z_{kj}$ fixed to zero there is no empty repositioning. If waiting is not more expensive than the shortest empty move, that is, $c^{\mathrm{w}}\le c^{\mathrm{e}}\min_{j\neq c_k}d(c_k,j)$ for every idle vehicle, then $(\mathrm{M}_t)$ has an optimal solution without repositioning, since an empty move only adds cost within one period. Repositioning becomes relevant once future values enter the objective (Section~\ref{sec:value}).
+\end{remark}
+
+\begin{remark}[Model size]
+The number of routes of an idle vehicle is at most $(1+|\mathcal{N}_\rho(c_k)|)(|\mathcal{U}|-1)(\bar\nu+1)$, and the sets $\mathcal{O}_{kr}$ are obtained by checking paths and times. The model has $|\mathcal{O}_t|\,|\Kdec|$ assignment variables and no big-$M$ constraints.
+\end{remark}
+
+\section{Looking Ahead through Vehicle-Location Values}\label{sec:value}
+
+$(\mathrm{M}_t)$ maximizes the profit of the current period and is therefore myopic: it does not see that a vehicle sent to a remote hub, or tied up on a long trip, will be less useful later. We add look-ahead without changing the structure of the model.
+
+Let $V(t',u)$ be an estimate of the future profit that one empty vehicle can earn from period $t'$ onwards when it becomes free at hub $u$, with $V(t',u)=0$ for $t'\ge T$. Every choice of a deciding vehicle fixes the hub and the period at which the vehicle is free again: route $r$ releases it at hub $e_r$ in period $T_{kr}(e_r)$, repositioning to $j$ releases it at hub $j$ in period $t+\tau(c_k,j)$, and waiting leaves it at $c_k$ in period $t+1$. The value-augmented model $(\mathrm{M}^V_t)$ has the constraints \eqref{eq:assign}--\eqref{eq:binary} and the objective
+\begin{equation}\label{eq:objV}
+\text{\eqref{eq:obj}}\;+\sum_{k\in\Kdec}\sum_{r\in\mathcal{R}_k}V\bigl(T_{kr}(e_r),e_r\bigr)\,y_{kr}
++\sum_{k\in\Kidle}\sum_{j\neq c_k}V\bigl(t+\tau(c_k,j),j\bigr)\,z_{kj}
++\sum_{k\in\Kidle}V(t+1,c_k)\,w_k .
+\end{equation}
+The added terms are linear in the existing variables, so $(\mathrm{M}^V_t)$ is an MILP of the same size as $(\mathrm{M}_t)$. With $V\equiv 0$ it is $(\mathrm{M}_t)$ itself. More generally, by \eqref{eq:oneidle} and \eqref{eq:onetrip} every deciding vehicle contributes exactly one value term, so only the differences between the values of the release states that a vehicle can reach affect the solution. If these values are all equal, $(\mathrm{M}^V_t)$ has the same optimal solutions as $(\mathrm{M}_t)$. The myopic model is thus the special case of a flat value function.
+
+Where $V$ comes from is a separate question. The planned sequence is the dual prices of the fluid linear program of Section~\ref{sec:fluid}, then a table over $(t',u)$ estimated from simulated returns, and a neural approximation only if the table proves too coarse. The value in \eqref{eq:objV} depends only on where and when a vehicle becomes free; it ignores the seats that remain free on a route in progress.
+
+\section{Rolling Procedure}\label{sec:rolling}
+
+The models are solved once per period. Algorithm~\ref{alg:rolling} states the procedure, and the list below gives the state transition that follows each solution.
+
+\begin{algorithm}[h]
+    \caption{Rolling dispatch over one operating day}\label{alg:rolling}
+    \KwIn{Network, fleet, order stream, pickup radius $\rho$, value function $V$ (zero for the myopic policy)}
+    \KwOut{Total profit $J$}
+    $J\leftarrow 0$; place all vehicles idle at their initial hubs\;
+    \For{$t=0$ \KwTo $T-1$}{
+        Add the orders with booking time $g_o=t$ to the pool $\mathcal{O}_t$\;
+        Determine $\Kidle$ and $\Ktrip$, the route sets $\mathcal{R}_k$ and the order sets $\mathcal{O}_{kr}$\;
+        Solve $(\mathrm{M}^V_t)$\;
+        Add the value of \eqref{eq:obj} at the solution to $J$\;
+        Update vehicles and orders as described below\;
+    }
+    \Return{$J$}\;
+\end{algorithm}
+
+\begin{itemize}
+    \item \emph{Orders.} An order with $x_{ok}=1$ leaves the pool and is committed to vehicle $k$; it cannot be reassigned or cancelled afterwards. An unassigned order in $\Oexp$ is cancelled. All other orders stay in the pool.
+    \item \emph{Idle vehicle with a route.} The vehicle leaves $c_k$ in period $t+\nu_r$. If $p_r\neq c_k$ it waits, drives empty to $p_r$ and takes no decision until it is there. If $p_r=c_k$ it belongs to the vehicles on a trip while it waits, with $\bar\nu_k$ counting down to its departure, and can take further orders. From $p_r$ on the vehicle follows the backbone and belongs to $\mathcal{K}^{\mathrm{trip}}_{t'}$ in every period $t'$ at whose start it stands at a hub before $e_r$.
+    \item \emph{Vehicle on a trip.} At each hub it drops the orders whose destination is that hub and picks up the committed orders whose origin is that hub. If it chose an extension, its end hub becomes $e_r$. When it reaches its end hub it becomes idle there.
+    \item \emph{Repositioning and waiting.} A vehicle with $z_{kj}=1$ drives empty to $j$ and is idle there from period $t+\tau(c_k,j)$. A vehicle with $w_k=1$ stays idle at $c_k$.
+    \item \emph{Seat loads.} For every committed order $o$ of vehicle $k$, $n_o$ is added to $\bar q_{ka}$ for the arcs $a\in A_o$ that the vehicle has not yet traversed.
+\end{itemize}
+
+\section{Policies, Benchmark and Bounds}\label{sec:eval}
+
+The performance of a policy is the total profit $J$ of Algorithm~\ref{alg:rolling} over the operating day, averaged over a fixed set of test scenarios. The same objective is used for every policy; in particular the cancellation penalty is part of $J$ for all of them. The nesting of the models gives a ladder of policies:
+\begin{enumerate}
+    \item own-hub matching: $(\mathrm{M}_t)$ with $\rho=0$;
+    \item exact myopic matching: $(\mathrm{M}_t)$ with $\rho>0$, which optimizes pickup hubs, routes and orders jointly for one period;
+    \item value-augmented matching: $(\mathrm{M}^V_t)$ with a non-flat $V$, with and without repositioning.
+\end{enumerate}
+The models are nested, but the daily profits need not be ordered in the same way: a myopic policy with a larger set of actions can commit vehicles to long empty drives and earn less over the day. The comparison between the first two policies is therefore an empirical question, and the myopic benchmark is the better of the two.
+
+Two upper bounds serve as yardsticks: the perfect-information bound, computed for each realization of the order stream, and the fluid bound, computed once from expected demand.
+
+\subsection{Perfect-information bound}\label{sec:hindsight}
+
+Fix a realization of the order stream, that is, the set $\mathcal{O}$ of all orders booked during the day together with their attributes. The perfect-information problem plans the whole day with $\mathcal{O}$ known at time zero. We state it as a flow problem on a time-expanded network. It keeps the physical limits of the service, namely travel times, seats and the time limits of the orders, and relaxes the remaining operating rules, so that every schedule produced by Algorithm~\ref{alg:rolling} is feasible for it.
+
+\paragraph{Time-expanded network.} Let $\bar\tau=\max_{u,v\in\mathcal{U}}\tau(u,v)$, and let $\bar T\ge\max\{T+\bar\nu+\bar\tau,\ \max_{o\in\mathcal{O}}b_o\}$, so that every movement that is decided before period $T$ has ended by period $\bar T$. A node $(u,t)$ stands for hub $u$ at the start of period $t\in\{0,\dots,\bar T\}$. For every arc $(u,v)\in\mathcal{A}$ and every period $t$ with $t+\tau_{uv}\le\bar T$ there is a movement arc from $(u,t)$ to $(v,t+\tau_{uv})$, and for every hub and every period $t<\bar T$ a waiting arc from $(u,t)$ to $(u,t+1)$. Let $m_u$ be the number of vehicles at hub $u$ at time zero.
+
+\paragraph{Orders.} A served order boards at its origin hub in one period of its boarding window
+\begin{equation}\label{eq:window}
+W_o=\bigl\{t\in\mathbb{Z}:\ a_o\le t\le\min\{\,b_o-\tau(\dep_o,\des_o),\ T-1+\bar\nu+2\bar\tau\,\}\bigr\}
+\end{equation}
+and then rides along $P(\dep_o,\des_o)$ without interruption, so that it enters arc $(u,v)\in A_o$ in period $t+\tau(\dep_o,u)$. The first two limits in \eqref{eq:window} are the ready time and the deadline; by Assumption~\ref{as:deadline} the window is not empty for an order that is booked early enough in the day. The third limit holds because an order must be assigned in a period before $T$, and the assigned vehicle then reaches the origin hub after a wait of at most $\bar\nu$ periods, at most one empty drive and a part of one backbone, each of which takes at most $\bar\tau$ periods.
+
+An order that is never assigned stays in the pool until it expires or the day ends. Let $\bar t_o$ be the first period $t\ge g_o$ with $\max\{t+1,a_o\}+\tau(\dep_o,\des_o)>b_o$, which by \eqref{eq:oexp} is the period in which the order expires. The penalties that such an order causes add up to
+\begin{equation}\label{eq:loss}
+L_o=\pi_o\bigl(\min\{\bar t_o,\,T-1\}-g_o+1\bigr)+\phi_o\,\mathbf{1}\{\bar t_o\le T-1\}.
+\end{equation}
+
+\paragraph{Variables.} The binary variable $\beta_{ot}$ equals one if order $o$ boards in period $t\in W_o$; we set $\beta_{ot}=0$ for $t\notin W_o$. The integer variables $\xi^{\mathrm{l}}_{uvt}$ and $\xi^{\mathrm{e}}_{uvt}$ count the vehicles that enter arc $(u,v)$ in period $t$ on a loaded route and on an empty move, and $\eta_{ut}$ counts the vehicles that wait at hub $u$ during period $t$. We write $\xi_{uvt}=\xi^{\mathrm{l}}_{uvt}+\xi^{\mathrm{e}}_{uvt}$ for all vehicles that enter the arc. Variables with a negative period index, and variables of movement arcs that do not exist in the network, are zero.
+
+The perfect-information problem $(\mathrm{H})$ is
+\begin{align}
+J^{\mathrm{H}}=\max\quad
+& \sum_{o\in\mathcal{O}}\sum_{t\in W_o}(f_o+L_o)\,\beta_{ot}-\sum_{o\in\mathcal{O}}L_o \notag\\
+& -\sum_{(u,v)\in\mathcal{A}}\sum_{t}\ell_{uv}\bigl(c^{\mathrm{l}}\,\xi^{\mathrm{l}}_{uvt}+c^{\mathrm{e}}\,\xi^{\mathrm{e}}_{uvt}\bigr)
+ -c^{\mathrm{w}}\sum_{u\in\mathcal{U}}\sum_{t=0}^{T-1}\eta_{ut} \label{eq:H-obj}\\[4pt]
+\text{s.t.}\quad
+& \sum_{t\in W_o}\beta_{ot}\le 1 && \forall o\in\mathcal{O}, \label{eq:H-assign}\\
+& \sum_{o\in\mathcal{O}:\ (u,v)\in A_o} n_o\,\beta_{o,\,t-\tau(\dep_o,u)}\le Q\,\xi^{\mathrm{l}}_{uvt} && \forall (u,v)\in\mathcal{A},\ t, \label{eq:H-seats}\\
+& \eta_{u0}+\sum_{v:(u,v)\in\mathcal{A}}\xi_{uv0}=m_u && \forall u\in\mathcal{U}, \label{eq:H-init}\\
+& \eta_{ut}+\sum_{v:(u,v)\in\mathcal{A}}\xi_{uvt}
+  =\eta_{u,t-1}+\sum_{v:(v,u)\in\mathcal{A}}\xi_{vu,\,t-\tau_{vu}} && \forall u\in\mathcal{U},\ 1\le t<\bar T, \label{eq:H-flow}\\
+& \beta_{ot}\in\{0,1\},\quad \xi^{\mathrm{l}}_{uvt},\,\xi^{\mathrm{e}}_{uvt},\,\eta_{ut}\in\mathbb{Z}_{\ge 0}. \label{eq:H-domain}
+\end{align}
+
+In the objective \eqref{eq:H-obj} a served order brings its fare and an unserved order costs $L_o$; this gives the coefficient $f_o+L_o$ and the constant $-\sum_o L_o$. The remaining terms are the distance costs of loaded and empty vehicle movements and the waiting cost during the operating day. Constraints \eqref{eq:H-assign} let each order board at most once. Constraints \eqref{eq:H-seats} state that the passengers who are on arc $(u,v)$ in period $t$ fit into the loaded vehicles that enter the arc in that period. Constraints \eqref{eq:H-init} and \eqref{eq:H-flow} conserve vehicles: those that are at a hub at the start of a period either wait or leave on some arc.
+
+\begin{proposition}\label{prop:hindsight}
+For every realization of the order stream and every policy that follows the operating rules of Sections~\ref{sec:state}--\ref{sec:rolling} and does not use information about future orders, the daily profit satisfies $J\le J^{\mathrm{H}}$. The bound remains valid when the integrality requirements in \eqref{eq:H-domain} are dropped.
+\end{proposition}
+
+\begin{proof}
+Take the schedule that the policy produces on the given realization. Set $\beta_{ot}=1$ if order $o$ is assigned during the day and its vehicle reaches $\dep_o$ in period $t$. Let $\xi^{\mathrm{l}}_{uvt}$ count the vehicles that enter arc $(u,v)$ in period $t$ on the backbone of a route, $\xi^{\mathrm{e}}_{uvt}$ those that enter it on an empty drive to a pickup hub or on a repositioning move, and $\eta_{ut}$ the vehicles that stand at hub $u$ during period $t$. Vehicles are neither created nor lost, which gives \eqref{eq:H-init} and \eqref{eq:H-flow}. By \eqref{eq:okr} and Assumption~\ref{as:path} the boarding period $t$ of an assigned order satisfies $t\ge\hat a_o(t')\ge a_o$, where $t'$ is the period of assignment, and $t+\tau(\dep_o,\des_o)\le b_o$, and $t\le T-1+2\bar\tau$ by the argument given after \eqref{eq:window}; hence $t\in W_o$. No order is assigned twice, which gives \eqref{eq:H-assign}. By \eqref{eq:seats} no vehicle carries more than $Q$ passengers on any arc, and summing over the vehicles that enter arc $(u,v)$ in period $t$ gives \eqref{eq:H-seats}. The schedule is therefore feasible for $(\mathrm{H})$.
+
+Its objective value in $(\mathrm{H})$ is at least $J$. Fares and the distance costs of routes and repositioning moves are the same in both. Waiting costs in $(\mathrm{H})$ do not exceed those of the policy, because $(\mathrm{H})$ charges a waiting vehicle only in periods before $T$, while the policy charges the full wait $\nu_r$ when the route is chosen. An order that is never assigned costs exactly $L_o$ in both. An order assigned in period $t'$ costs the waiting penalties $\pi_o(t'-g_o)\ge 0$ under the policy and nothing in $(\mathrm{H})$. Hence $J\le J^{\mathrm{H}}$. Dropping integrality enlarges the feasible set of a maximization problem.
+\end{proof}
+
+$(\mathrm{H})$ is more permissive than the service in four respects. Seats are pooled over the vehicles that travel on the same arc in the same period, so the passengers of one order may be split between vehicles and may change vehicles at a hub. The route rules of Section~\ref{sec:model}, that is, the fixed backbone, the two anchoring constraints, the extension rule and the pickup radius, are not imposed. The waiting penalties of served orders are dropped. The period of assignment enters only through the third limit in \eqref{eq:window}. In addition, $J^{\mathrm{H}}$ contains the value of knowing future orders, which no online policy can obtain. The gap between $J^{\mathrm{H}}$ and the myopic benchmark is therefore an upper limit on what look-ahead can add, not an estimate of it. The gain of an online look-ahead policy that samples future orders will be reported next to it.
+
+\subsection{Fluid bound}\label{sec:fluid}
+
+The second bound replaces the random order stream by its expectation. Suppose that the attribute vector of an order, $(\dep_o,\des_o,n_o,g_o,a_o,b_o,f_o,\pi_o,\phi_o)$, takes values in a finite set of types $\mathcal{I}$, and let $\Lambda_i$ be the expected number of orders of type $i$ per day. All orders of type $i$ share the window $W_i$ from \eqref{eq:window}, the penalty $L_i$ from \eqref{eq:loss} and the arc set $A_i$. The initial fleet positions $m_u$ are fixed, and $\bar T$ is chosen for the latest deadline that can occur.
+
+The fluid problem $(\mathrm{F})$ has a continuous variable $B_{it}\ge 0$, the quantity of type-$i$ orders that board in period $t\in W_i$, and the vehicle variables of $(\mathrm{H})$ without integrality:
+\begin{align}
+J^{\mathrm{F}}=\max\quad
+& \sum_{i\in\mathcal{I}}\sum_{t\in W_i}(f_i+L_i)\,B_{it}-\sum_{i\in\mathcal{I}}L_i\,\Lambda_i \notag\\
+& -\sum_{(u,v)\in\mathcal{A}}\sum_{t}\ell_{uv}\bigl(c^{\mathrm{l}}\,\xi^{\mathrm{l}}_{uvt}+c^{\mathrm{e}}\,\xi^{\mathrm{e}}_{uvt}\bigr)
+ -c^{\mathrm{w}}\sum_{u\in\mathcal{U}}\sum_{t=0}^{T-1}\eta_{ut} \label{eq:F-obj}\\[4pt]
+\text{s.t.}\quad
+& \sum_{t\in W_i}B_{it}\le\Lambda_i && \forall i\in\mathcal{I}, \label{eq:F-demand}\\
+& \sum_{i\in\mathcal{I}:\ (u,v)\in A_i} n_i\,B_{i,\,t-\tau(\dep_i,u)}\le Q\,\xi^{\mathrm{l}}_{uvt} && \forall (u,v)\in\mathcal{A},\ t, \label{eq:F-seats}\\
+& \text{\eqref{eq:H-init} and \eqref{eq:H-flow}}, \notag\\
+& B_{it},\ \xi^{\mathrm{l}}_{uvt},\ \xi^{\mathrm{e}}_{uvt},\ \eta_{ut}\ge 0. \label{eq:F-domain}
+\end{align}
+$(\mathrm{F})$ is a linear program whose size does not depend on the number of sampled scenarios.
+
+\begin{proposition}\label{prop:fluid}
+Under the conditions stated above, every policy covered by Proposition~\ref{prop:hindsight} satisfies
+\[
+\mathbb{E}[J]\ \le\ \mathbb{E}\bigl[J^{\mathrm{H}}\bigr]\ \le\ J^{\mathrm{F}} .
+\]
+\end{proposition}
+
+\begin{proof}
+The first inequality is Proposition~\ref{prop:hindsight}. For the second, fix a realization and let $D_i$ be the number of its orders of type $i$. Let $\Phi(D)$ denote the optimal value of $(\mathrm{F})$ with $\Lambda$ replaced by $D=(D_i)_{i\in\mathcal{I}}$.
+
+The linear relaxation of $(\mathrm{H})$ has the value $\Phi(D)$. Given a solution of the relaxation, $B_{it}=\sum_{o\text{ of type }i}\beta_{ot}$ is feasible for $(\mathrm{F})$ with demand $D$ and has the same objective value. Conversely, given a solution of $(\mathrm{F})$ with demand $D$, setting $\beta_{ot}=B_{it}/D_i$ for every order $o$ of a type $i$ with $D_i>0$ is feasible for the relaxation, because $\sum_t\beta_{ot}\le 1$ by \eqref{eq:F-demand}, and has the same objective value. Since the relaxation bounds $(\mathrm{H})$ from above, $J^{\mathrm{H}}\le\Phi(D)$.
+
+Write $\Phi(D)=\Psi(D)-\sum_i L_iD_i$, where $\Psi(D)$ is the optimal value of a maximization linear program in which $D$ appears only on the right-hand side of \eqref{eq:F-demand}. This program is feasible for every $D\ge 0$, since all vehicles may wait, and $\Psi(D)\le\sum_i(f_i+L_i)D_i$, so $\Psi$ is finite; the value of such a program is concave in its right-hand side. Hence $\Phi$ is concave, and Jensen's inequality gives $\mathbb{E}[\Phi(D)]\le\Phi(\mathbb{E}[D])=\Phi(\Lambda)=J^{\mathrm{F}}$.
+\end{proof}
+
+The fluid bound is weaker than the expected perfect-information bound, since it also ignores that vehicles and orders are indivisible and that demand fluctuates. It has two uses. It needs one linear program instead of one integer program per scenario. And the dual variable of the conservation constraint \eqref{eq:H-init} or \eqref{eq:H-flow} of node $(u,t)$ is the marginal value of one more vehicle at hub $u$ at the start of period $t$, which is the first candidate for the value $V(t,u)$ of Section~\ref{sec:value}. The pickup locations are continuous, but an order enters $(\mathrm{H})$ only through the first period $\lceil a_o\rceil$ in which it can board, because boarding takes place at the start of a period. Orders can therefore be typed by their hubs, group size, booking period, ready period and deadline; with discrete group sizes and deadlines given in periods the type set is finite. The collection tours make the orders of one batch dependent, but the argument only uses the expected number of orders of each type, which is well defined.
+
+\subsection{Information relaxation with a penalty}\label{sec:penalty}
+
+The perfect-information bound lets the planner see all bookings of the day at time zero. Following Brown, Smith and Sun (2010), the value of this extra information can be charged for with a penalty that has zero expectation under every non-anticipative policy; the penalized perfect-information value is then still an upper bound, and it is tighter when the penalty resembles the true continuation value.
+
+Let $W_t$ denote the set of orders booked in period $t$, and assume that $W_1,W_2,\dots$ are independent of one another and of the initial state, which holds when bookings arrive as a Poisson process. Let $\Gamma$ be any deterministic function that assigns to a booked order $o$ and a node $(u,t'')$ of the time-expanded network a number $\Gamma_o(u,t'')$: the value that one more vehicle reaching hub $u$ in period $t''$ has for serving $o$. It may use only attributes of $o$ that are fixed at booking and independent of earlier bookings; with collection tours this means the bound $\bar a_o$ rather than the ready time $a_o$, which depends on the other orders of the batch. Define the innovation of period $t$ at a node as
+\begin{equation}\label{eq:innov}
+\varepsilon_t(u,t'')=\sum_{o\in W_t}\Gamma_o(u,t'')-\mathbb{E}\Bigl[\sum_{o\in W_t}\Gamma_o(u,t'')\Bigr],
+\end{equation}
+and charge every movement arc entered in period $s$ whose head is $(u,t'')$, and every waiting arc from $(u,s)$ to $(u,s+1)$, the amount
+\begin{equation}\label{eq:penalty}
+\Pi_{s}(u,t'')=\sum_{t>s}\varepsilon_t(u,t'') .
+\end{equation}
+The penalized problem $(\mathrm{H}^{\Pi})$ is $(\mathrm{H})$ with $\sum\Pi_s(u,t'')\,\xi$ subtracted from the objective over all movement and waiting arcs.
+
+\begin{proposition}\label{prop:penalty}
+Under the independence assumption above, for every function $\Gamma$ and every policy covered by Proposition~\ref{prop:hindsight}, $\mathbb{E}[J]\le\mathbb{E}[J^{\mathrm{H}^{\Pi}}]$.
+\end{proposition}
+
+\begin{proof}
+Map the schedule of the policy to flows as in the proof of Proposition~\ref{prop:hindsight}. The total penalty of the mapped flows equals $\sum_{t\ge1}\sum_{(u,t'')}\varepsilon_t(u,t'')\,N^{<t}_{u,t''}$, where $N^{<t}_{u,t''}$ counts the vehicles that the policy has sent to node $(u,t'')$ by decisions taken before period $t$. Since the policy is non-anticipative, $N^{<t}_{u,t''}$ is determined by the bookings of periods before $t$, and $W_t$ is independent of them, so the conditional expectation of $\varepsilon_t(u,t'')$ given $N^{<t}$ is zero and the expected total penalty is zero. Hence the expected penalized value of the mapped flows equals $\mathbb{E}[J]$ at most, and the maximum over all flows can only be larger.
+\end{proof}
+
+The bound holds for every $\Gamma$, including $\Gamma\equiv0$, which gives $(\mathrm{H})$; a scale factor on $\Gamma$ can be chosen on training scenarios and the bound reported on separate test scenarios. A natural choice takes $\Gamma$ from the value function of Section~\ref{sec:value}: $\Gamma_o(u,t'')$ is the change in the fluid dual price $V(t'',u)$ when one more order of the class of $o$ is expected, that is, the mixed sensitivity of the fluid value to supply and demand. This choice, with the scale selected on training scenarios, did not tighten the bound in the numerical prototype: the penalized problem exploits nodes where demand turned out lower than expected, and the tightest scale was zero. Penalties tied to the orders that are actually served, rather than to vehicle positions, are the next thing to try.
+
+\section{Open Modelling Items}\label{sec:open}
+
+\begin{itemize}
+    \item \emph{First mile.} The collection rule of Assumption~\ref{as:exo} is time based: one tour per city and collection period. Quantity-based or hybrid rules (leave when the batch reaches a size, or after a maximum wait), several collection zones per city, and a limited HV fleet are variants. The collection problem of the earlier memo, kept in Appendix~\ref{app:firstmile}, is the exact version of one tour; it can serve to check the constant $k(n)$ in \eqref{eq:firstmile}.
+    \item \emph{Collection period.} $H_u$ trades the waiting of passengers and the size of the tours against the lumpiness of hub arrivals and the waiting of AVs; it is a design parameter of the operator and belongs in the numerical experiments.
+    \item \emph{Demand inside the cities.} The region $\mathcal{C}_u$, the hub location $h_u$, the density $\psi_u$ and the booking rate $\lambda_u(t)$ are to be taken from data. The numerical prototype uses a disc with uniform demand and the hub on its boundary as a placeholder.
+    \item \emph{Last mile.} The deadline $b_o$ refers to the destination hub. A deadline at the final address would reduce it by the duration of the last mile.
+    \item \emph{Transfer time at hubs.} Boarding, alighting and transfer between HV and AV take no time in this version.
+    \item \emph{Longest departure delay.} The bound $\bar\nu$ limits how early a vehicle can be committed to an order that is still on its first mile; it is a policy parameter.
+    \item \emph{Energy and charging.} Omitted. They should return only if the range is calibrated so that it binds during a day.
+    \item \emph{Fares and costs.} The fare $f_o$, the distance costs $c^{\mathrm{e}}$ and $c^{\mathrm{l}}$, the penalties $\pi_o$ and $\phi_o$ and the waiting cost $c^{\mathrm{w}}$ are parameters to be calibrated with operating data. How much cheaper an empty AV is than a loaded or human-driven vehicle decides when cross-hub pickup and repositioning pay off.
+    \item \emph{End of the day.} Fares are credited at assignment. Orders assigned in the last periods are not delivered within the horizon, so the evaluation needs warm-up and cool-down periods or a terminal value.
+    \item \emph{Pickup radius.} Whether $\rho$ is limited to directly linked hubs, as in the current implementation, or treated as a policy parameter.
+\end{itemize}
+
+\appendix
+
+\section{Notation}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{l p{0.68\textwidth}}
+        \toprule
+        Notation & Explanation \\
+        \midrule
+        $\mathcal{U}$, $\mathcal{L}$, $\mathcal{A}$ & Hubs, highway links, directed arcs\\
+        $\mathcal{T}$ & Periods $0,\dots,T-1$\\
+        $\mathcal{K}$ & Vehicles (AVs)\\
+        $\Kidle$, $\Ktrip$, $\Kdec$ & Idle vehicles, vehicles on a trip at a hub, and their union, in period $t$\\
+        $\mathcal{O}_t$ & Orders in the pool at the start of period $t$\\
+        $\Oexp$ & Orders in the pool that expire if not assigned in period $t$\\
+        $\mathcal{N}_\rho(u)$ & Hubs within distance $\rho$ of hub $u$\\
+        $\mathcal{R}_k$, $\mathcal{R}^{+}_k$ & Candidate routes of vehicle $k$, and those chosen anew in period $t$\\
+        $\mathcal{O}_{kr}$ & Orders that vehicle $k$ can serve on route $r$\\
+        $A_o$ & Directed arcs on the path of order $o$\\
+        \bottomrule
+    \end{tabular}
+    \caption{Sets}
+    \label{tab:sets}
+\end{table}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{l p{0.68\textwidth}}
+        \toprule
+        Notation & Explanation \\
+        \midrule
+        $\ell_{uv}$, $\tau_{uv}$ & Length and travel time (in periods) of link $(u,v)$\\
+        $P(u,v)$, $d(u,v)$, $\tau(u,v)$ & Shortest path from $u$ to $v$, its length and its travel time\\
+        $Q$ & Seats per vehicle\\
+        $\rho$ & Pickup radius\\
+        $\dep_o$, $\des_o$ & Origin and destination hub of order $o$\\
+        $n_o$ & Number of passengers of order $o$\\
+        $\mathcal{C}_u$, $h_u$, $\psi_u$ & Region of city $u$, location of its hub, spatial density of pickup locations\\
+        $\lambda_u(t)$ & Booking rate of trips that start in city $u$\\
+        $\zeta_o$ & Pickup location of order $o$\\
+        $H_u$, $\theta$, $Q^{\mathrm{H}}$ & Collection period of city $u$, cutoff of a batch, seats of an HV\\
+        $T_u(n)$, $r_u$, $A_u$, $v^{\mathrm{c}}$, $\tau^{\mathrm{s}}$, $k(n)$ & Duration of a collection tour with $n$ stops and its ingredients: hub-to-centre distance, area, city speed, stop time, tour constant\\
+        $g_o$, $a_o$, $\bar a_o$, $\hat a_o(t)$, $b_o$ & Booking time, ready time at the origin hub, its upper bound known at booking, the ready time planned with in period $t$, latest arrival at the destination hub\\
+        $\sigma_o$ & Slack of order $o$\\
+        $\nu_r$, $\bar\nu$, $\bar\nu_k$ & Departure delay of route $r$; its upper limit; remaining wait of a vehicle on a trip\\
+        $f_o$ & Fare of order $o$\\
+        $\pi_o$, $\phi_o$ & Waiting penalty per period and cancellation penalty of order $o$\\
+        $c^{\mathrm{e}}$, $c^{\mathrm{l}}$ & Cost per unit distance of an empty and of a loaded vehicle\\
+        $c^{\mathrm{w}}$ & Cost of a vehicle waiting for one period\\
+        $c_k$ & Hub of vehicle $k$ at the start of period $t$\\
+        $\bar P_k$, $\bar e_k$, $\bar r_k$ & Remaining path, end hub and route of a vehicle on a trip\\
+        $\bar q_{ka}$ & Seats of vehicle $k$ already assigned on arc $a$\\
+        $p_r$, $e_r$, $B_r$ & Pickup hub, end hub and backbone of route $r$\\
+        $T_{kr}(h)$ & Period in which vehicle $k$ on route $r$ reaches hub $h$\\
+        $C_{kr}$ & Cost of route $r$ for vehicle $k$\\
+        $V(t',u)$ & Value of an empty vehicle that becomes free at hub $u$ in period $t'$\\
+        $\bar\tau$, $\bar T$ & Longest travel time between two hubs; last period of the time-expanded network\\
+        $m_u$ & Number of vehicles at hub $u$ at time zero\\
+        $W_o$, $L_o$ & Boarding window of order $o$; total penalty if it is never assigned\\
+        $\mathcal{I}$, $\Lambda_i$ & Order types; expected number of type-$i$ orders per day\\
+        \bottomrule
+    \end{tabular}
+    \caption{Parameters and state}
+    \label{tab:params}
+\end{table}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{l p{0.68\textwidth}}
+        \toprule
+        Notation & Explanation \\
+        \midrule
+        $x_{ok}$ & One if order $o$ is assigned to vehicle $k$\\
+        $y_{kr}$ & One if vehicle $k$ takes route $r$\\
+        $z_{kj}$ & One if idle vehicle $k$ moves empty to hub $j$\\
+        $w_k$ & One if idle vehicle $k$ waits\\
+        $s_o$ & One if order $o$ is left unassigned\\
+        $\beta_{ot}$, $B_{it}$ & Bounds: order $o$ boards in period $t$; quantity of type-$i$ orders boarding in period $t$\\
+        $\xi^{\mathrm{l}}_{uvt}$, $\xi^{\mathrm{e}}_{uvt}$ & Bounds: loaded and empty vehicles entering arc $(u,v)$ in period $t$\\
+        $\eta_{ut}$ & Bounds: vehicles waiting at hub $u$ during period $t$\\
+        \bottomrule
+    \end{tabular}
+    \caption{Decision variables}
+    \label{tab:vars}
+\end{table}
+
+\section{First-Mile Collection (from the Earlier Memo)}\label{app:firstmile}
+
+The earlier memo formulated the first-mile segment of one city as a vehicle routing problem with time windows. The passengers of a city have different pickup locations and the same destination, the highway hub. We restate the formulation with complete index sets. It is not yet linked to $(\mathrm{M}_t)$.
+
+Let $C$ be the set of pickup requests of the city, node $0$ the hub as the start of a tour and node $n+1$ the hub as its end, and $N=C\cup\{0,n+1\}$. Let $K^{\mathrm{H}}$ be the set of HVs, each with $Q^{\mathrm{H}}$ seats. Request $i$ has $q_i$ passengers and the time window $[e_i,l_i]$; $d_{ij}$ and $t_{ij}$ are the distance and the travel time from $i$ to $j$, and $c$ is the cost per unit distance. The variable $x_{ijk}\in\{0,1\}$ equals one if vehicle $k$ drives from $i$ to $j$; it is defined for $i\neq j$, and no arc enters node $0$ or leaves node $n+1$. The variable $s_{ik}$ is the time at which vehicle $k$ reaches node $i$.
+\begin{align}
+\min\quad & \sum_{k\in K^{\mathrm{H}}}\sum_{i\in N}\sum_{j\in N} c\,d_{ij}\,x_{ijk} \label{eq:fm-obj}\\
+\text{s.t.}\quad
+& \sum_{k\in K^{\mathrm{H}}}\sum_{j\in N} x_{ijk}=1 && \forall i\in C, \label{eq:fm-visit}\\
+& \sum_{j\in N} x_{0jk}=1 && \forall k\in K^{\mathrm{H}}, \label{eq:fm-start}\\
+& \sum_{i\in N} x_{ihk}-\sum_{j\in N} x_{hjk}=0 && \forall h\in C,\ k\in K^{\mathrm{H}}, \label{eq:fm-flow}\\
+& \sum_{i\in N} x_{i,n+1,k}=1 && \forall k\in K^{\mathrm{H}}, \label{eq:fm-end}\\
+& \sum_{i\in C} q_i\sum_{j\in N} x_{ijk}\le Q^{\mathrm{H}} && \forall k\in K^{\mathrm{H}}, \label{eq:fm-cap}\\
+& s_{ik}+t_{ij}-M(1-x_{ijk})\le s_{jk} && \forall i,j\in N,\ k\in K^{\mathrm{H}}, \label{eq:fm-time}\\
+& e_i\le s_{ik}\le l_i && \forall i\in C,\ k\in K^{\mathrm{H}}. \label{eq:fm-window}
+\end{align}
+The objective \eqref{eq:fm-obj} is the total driving cost. Constraints \eqref{eq:fm-visit} state that every request is picked up once. Constraints \eqref{eq:fm-start}, \eqref{eq:fm-flow} and \eqref{eq:fm-end} state that each vehicle leaves the hub, continues from every request it visits, and returns to the hub; a vehicle that is not used drives from node $0$ to node $n+1$ at zero distance. Constraints \eqref{eq:fm-cap} limit the passengers on board, and constraints \eqref{eq:fm-time} and \eqref{eq:fm-window} enforce the time windows, with $M$ a sufficiently large constant. The time $s_{n+1,k}$ at which vehicle $k$ returns to the hub would determine the ready time $a_o$ of the orders it carries.
+
+\end{document}
