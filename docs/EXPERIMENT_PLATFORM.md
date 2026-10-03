@@ -4,7 +4,9 @@
 
 这是研究用的本地 React 平台，不是面向互联网的服务。网页、HTTP API 和终端入口共用 `experiment_core`；数据集、物理模型、控制器、价值函数与求解后端分别定义。所有计算来自真实代码与冻结数据，没有模拟成功结果。
 
-Windows：
+Windows 已有环境时，双击仓库根目录的 [start.bat](../start.bat)：检查 Python/网页构建，启动或复用本工作区服务，健康检查就绪后打开默认浏览器。它不需要管理员权限、不修改 PowerShell 执行策略，也不自动安装依赖。网址使用实际服务端口；浏览器无法自动打开时，控制台会提示手动打开 URL。控制台可关闭而服务继续运行，停止仍用 `scripts/stop.ps1`。
+
+命令行自检可执行 `start.bat --no-browser --no-pause`；一般双击无需参数。BAT 已在包含中文/空格的路径上验证错误提示。首次安装及原有命令式启动：
 
 ```powershell
 .\scripts\setup.ps1

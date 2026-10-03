@@ -30,6 +30,16 @@
 
 本次跨分支文档更新仅修改各自 README，不把本分支的功能代码合并进 main 或 single-level 分支。
 
+## Windows 双击启动
+
+已有环境时，直接双击仓库根目录的 [start.bat](start.bat)。它会定位自身所在目录、检查项目 Python 和网页构建、启动或复用服务，健康检查通过后自动打开默认浏览器。网址读取实际服务端口，不写死为 8765。
+
+控制台会保留启动结果；出现 `ready` 后可关闭窗口，后台服务继续运行。自动打开浏览器失败时，复制输出的本地 URL 手动打开。关闭网页或控制台并不等于停止服务，停止仍用 `scripts/stop.ps1`。
+
+首次尚未安装时，先运行下方的 `scripts/setup.ps1`。BAT 不自动安装依赖、不修改 PowerShell 执行策略、不要求管理员权限，也不验证优化许可证；运行实验前仍建议执行 doctor。
+
+命令行验证可用 `start.bat --no-browser --no-pause`（不打开浏览器、不等待按键）；平时双击无需参数。原有 `scripts/start.ps1` 继续只启动服务，不自动打开网页。
+
 ## 找模块：先看真正实现，不要误入兼容入口
 
 ```text
@@ -63,6 +73,7 @@
 ├─ configs/                       CLI 示例配置，不是 frozen datasets
 ├─ schemas/generated/             自动生成的族命名空间 Schema/OpenAPI
 ├─ scripts/                       安装/诊断/启动/停止/CLI 薄入口
+├─ start.bat                      Windows 双击启动并打开浏览器
 ├─ tests/                         模型与平台回归
 ├─ docs/                          使用说明、验收、模型审阅与历史报告
 ├─ doc/                           单层数学说明 LaTeX
@@ -95,7 +106,7 @@
 | 本地 Python 论文图渲染 | [experiment_core/paper_renderer.py](experiment_core/paper_renderer.py) |
 | source snapshot、独立 worker | [experiment_core/worker.py](experiment_core/worker.py) |
 | 复现 ZIP | [experiment_core/reproduction.py](experiment_core/reproduction.py) |
-| 本地启动/停止与 CLI | [launch.py](experiment_core/launch.py)、[cli.py](experiment_core/cli.py)、[scripts/](scripts/) |
+| Windows 双击、本地启动/停止与 CLI | [start.bat](start.bat)、[launch.py](experiment_core/launch.py)、[cli.py](experiment_core/cli.py)、[scripts/](scripts/) |
 
 所有族均按自身 package 维护 `parameters.py`、`generation.py`、`data.py`、`plugin.py`、`mathematics.py`、`runner.py`、`metrics.py` 与模板。新增研究逻辑不要写进其他族或公共调度层。
 

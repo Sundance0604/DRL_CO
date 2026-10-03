@@ -1,18 +1,38 @@
 """Owned-instance launcher. Never terminates a process merely owning our port."""
 
+import argparse
 import json
 import os
 import secrets
 import subprocess
 import sys
 import time
+import webbrowser
 import psutil
 from .cli import active_server
 from .contracts import PlatformError, ApplicationConfig
 from .storage import ROOT, atomic_json, read_json, workspace
 
 
-def main():
+def report_ready(result, open_browser=False):
+    """Open only the verified local service, after health readiness or reuse."""
+    if open_browser:
+        try:
+            result["browser_opened"] = bool(webbrowser.open(result["url"], new=2))
+        except Exception:
+            result["browser_opened"] = False
+        if not result["browser_opened"]:
+            result["browser_warning"] = "Open the local URL manually in your browser."
+    print(json.dumps(result))
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Start or stop this local platform.")
+    parser.add_argument("action", choices=("start", "stop"), nargs="?", default="start")
+    parser.add_argument("--open-browser", action="store_true")
+    args = parser.parse_args(argv)
+    if args.action == "stop" and args.open_browser:
+        parser.error("--open-browser is only available for start")
     config = ApplicationConfig.model_validate(
         read_json(ROOT / "platform.local.json")
     ).model_dump()
@@ -20,7 +40,7 @@ def main():
     if config["host"] != "127.0.0.1":
         raise PlatformError("LOCAL_ONLY", "nonlocal binding is not supported")
     marker = workspace() / "launcher.json"
-    if sys.argv[1] == "stop":
+    if args.action == "stop":
         owner = read_json(marker)
         try:
             process = psutil.Process(owner["pid"])
@@ -47,7 +67,8 @@ def main():
         return
     if active_server():
         server = read_json(workspace() / "server.json")
-        print(json.dumps({"reused": True, "url": f"http://127.0.0.1:{server['port']}"}))
+        port = ApplicationConfig.model_validate({"port": server["port"]}).port
+        report_ready({"reused": True, "url": f"http://127.0.0.1:{port}"}, args.open_browser)
         return
     if not (ROOT / "frontend" / "dist" / "index.html").exists():
         raise PlatformError("UI_NOT_BUILT", "run setup before start")
@@ -86,7 +107,7 @@ def main():
     limit = time.monotonic() + 15
     while time.monotonic() < limit:
         if active_server():
-            print(json.dumps({"started": True, "url": f"http://127.0.0.1:{port}"}))
+            report_ready({"started": True, "url": f"http://127.0.0.1:{port}"}, args.open_browser)
             return
         if proc.poll() is not None:
             raise PlatformError(
@@ -102,3 +123,6 @@ if __name__ == "__main__":
     except PlatformError as exc:
         print(json.dumps(exc.as_dict()))
         sys.exit(exc.exit_code)
+    except (OSError, ValueError) as exc:
+        print(json.dumps({"error": {"code": "LAUNCH_ERROR", "message": str(exc)}}))
+        sys.exit(2)
