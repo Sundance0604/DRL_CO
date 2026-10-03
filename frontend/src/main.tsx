@@ -12,6 +12,12 @@ import {
   Bar,
 } from "recharts";
 import "./style.css";
+import {
+  AnalysisPanel,
+  BatchBuilder,
+  MathPanel,
+  schemaDefaults,
+} from "./family-components";
 
 type Json = Record<string, any>;
 type Plugin = {
@@ -21,8 +27,9 @@ type Plugin = {
   parameters_schema: Json;
 };
 let token = "";
-async function api(path: string, body?: unknown): Promise<any> {
-  if (body !== undefined && !token) token = (await api("/session")).write_token;
+async function requestApi(path: string, body?: unknown): Promise<any> {
+  if (body !== undefined && !token)
+    token = (await requestApi("/session")).write_token;
   const response = await fetch("/api/v1" + path, {
     method: body === undefined ? "GET" : "POST",
     headers: { "Content-Type": "application/json", "X-Workspace-Token": token },
@@ -43,9 +50,34 @@ const pages = [
   "回放",
   "BHH 分析",
   "复现",
+  "数学模型",
+  "实验分析",
   "诊断",
 ];
-function defaultSpec(): Json {
+function defaultSpec(meta?: Json): Json {
+  if (meta) {
+    const b = defaultSpec(),
+      f = meta.frameworks[0],
+      m = f.model ?? meta.models[0];
+    return {
+      ...b,
+      family: meta.id,
+      framework_id: f.id,
+      name: meta.name + " · " + f.label,
+      dataset: { ...b.dataset, dataset_id: meta.id + "-demo", revision: "" },
+      model: { id: m, version: "1", parameters: {} },
+      controller: { id: f.controller, version: "1", parameters: {} },
+      value_function: { id: f.value_function, version: "1", parameters: {} },
+      solver: { ...b.solver, backend: meta.backends[m] },
+      evaluation: {
+        ...b.evaluation,
+        accounting_version: meta.accounting,
+        metrics: meta.metrics.map((m: Json) => m.key),
+        information_set: f.information_set ?? "online",
+      },
+    };
+  }
+
   return {
     schema_version: "experiment-spec/v1",
     name: "单层匹配 · 基线",
@@ -303,12 +335,53 @@ function Network({ network, state }: { network: Json; state?: Json }) {
     </>
   );
 }
-function App() {
+function Workspace({
+  meta,
+  families,
+  onFamily,
+}: {
+  meta: Json;
+  families: Json[];
+  onFamily: (id: string) => void;
+}) {
+  const api = async (path: string, body?: any) => {
+    if (
+      body !== undefined &&
+      (path === "/batches" ||
+        path.startsWith("/experiments/") ||
+        path === "/debug/step")
+    ) {
+      body = structuredClone(body);
+      const base = body.base_spec ?? body.spec ?? body;
+      if (!meta.models.includes(base.model.id))
+        throw Error("JSON 模型不属于当前工作区，请先切换模型族");
+      base.family = meta.id;
+      for (const v of body.variants ?? []) {
+        if (
+          (v.model?.id && !meta.models.includes(v.model.id)) ||
+          (v.family && v.family !== meta.id)
+        )
+          throw Error("批次不能跨模型族混合执行");
+        v.family = meta.id;
+      }
+    }
+    return requestApi(path, body);
+  };
+
   const [page, setPage] = useState("总览"),
     [datasets, setDatasets] = useState<Json[]>([]),
     [runs, setRuns] = useState<Json[]>([]),
     [plugins, setPlugins] = useState<Plugin[]>([]),
-    [spec, setSpec] = useState<Json>(defaultSpec),
+    [spec, setSpec] = useState<Json>(() => {
+      try {
+        return (
+          JSON.parse(localStorage.getItem("spec:" + meta.id) ?? "null") ??
+          defaultSpec(meta)
+        );
+      } catch {
+        return defaultSpec(meta);
+      }
+    }),
     [raw, setRaw] = useState(""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -321,7 +394,14 @@ function App() {
     [capabilities, setCapabilities] = useState<Json | null>(null),
     [comparisonIds, setComparisonIds] = useState<string[]>([]),
     [preview, setPreview] = useState<Json | null>(null),
-    [family, setFamily] = useState("single_level_matching"),
+    [generation, setGeneration] = useState<Json>({
+      ...schemaDefaults(meta.generation_schema),
+      dataset_id: meta.id + "-demo",
+      seeds: [10001, 10002, 10003, 10004],
+      splits: ["test"],
+      horizon: 6,
+      orders_per_step: 2,
+    }),
     [importText, setImportText] = useState(""),
     [importFormat, setImportFormat] = useState("csv");
   const busy = useRef(false);
@@ -343,7 +423,10 @@ function App() {
   };
   const refresh = async () => {
     try {
-      const [d, r] = await Promise.all([api("/datasets"), api("/runs")]);
+      const [d, r] = await Promise.all([
+        api("/datasets?family=" + meta.id),
+        api("/runs?family=" + meta.id),
+      ]);
       setDatasets(d);
       setRuns(r);
     } catch (e) {
@@ -352,8 +435,26 @@ function App() {
   };
   useEffect(() => {
     refresh();
-    api("/plugins")
-      .then(setPlugins)
+    api("/plugins?family=" + meta.id)
+      .then((items: Plugin[]) => {
+        setPlugins(items);
+        setSpec((previous: Json) => {
+          const result = { ...previous };
+          for (const kind of ["model", "controller", "value_function"]) {
+            const p = items.find(
+              (p) => p.kind === kind && p.id === previous[kind].id,
+            );
+            result[kind] = {
+              ...previous[kind],
+              parameters: {
+                ...schemaDefaults(p?.parameters_schema ?? {}),
+                ...previous[kind].parameters,
+              },
+            };
+          }
+          return result;
+        });
+      })
       .catch((e) => setError(String(e)));
     api("/capabilities")
       .then(setCapabilities)
@@ -363,6 +464,7 @@ function App() {
   }, []);
   useEffect(() => {
     setRaw(pretty(spec));
+    localStorage.setItem("spec:" + meta.id, pretty(spec));
   }, [spec]);
   useEffect(() => {
     if (!selected) return;
@@ -379,58 +481,91 @@ function App() {
       dataset: {
         dataset_id: d.dataset_id,
         revision: d.revision,
-        split: "test",
+        split: spec.controller.id.startsWith("train_") ? "train" : "test",
         scenario_ids: [],
       },
     });
+  const selectFramework = (f: Json, training = false) => {
+    const model = f.model ?? meta.models[0];
+    setSpec({
+      ...spec,
+      family: meta.id,
+      framework_id: f.id,
+      model: {
+        id: model,
+        version: "1",
+        parameters:
+          spec.model.id === model
+            ? spec.model.parameters
+            : schemaDefaults(
+                plugins.find((p) => p.kind === "model" && p.id === model)
+                  ?.parameters_schema ?? {},
+              ),
+      },
+      controller: {
+        id: training ? f.training_controller : f.controller,
+        version: "1",
+        parameters: schemaDefaults(
+          plugins.find(
+            (p) =>
+              p.kind === "controller" &&
+              p.id === (training ? f.training_controller : f.controller),
+          )?.parameters_schema ?? {},
+        ),
+      },
+      value_function: {
+        id: training ? "zero" : f.value_function,
+        version: "1",
+        parameters: schemaDefaults(
+          plugins.find(
+            (p) =>
+              p.kind === "value_function" &&
+              p.id === (training ? "zero" : f.value_function),
+          )?.parameters_schema ?? {},
+        ),
+      },
+      solver: { ...spec.solver, backend: meta.backends[model] },
+      evaluation: {
+        ...spec.evaluation,
+        accounting_version: meta.accounting,
+        information_set: f.information_set ?? "online",
+        metrics: meta.metrics.map((m: Json) => m.key),
+      },
+      dataset: { ...spec.dataset, split: training ? "train" : "test" },
+      execution: {
+        ...spec.execution,
+        training_seeds: training ? [0] : undefined,
+      },
+    });
+  };
+  const framework =
+    meta.frameworks.find((f: Json) => f.id === spec.framework_id) ??
+    meta.frameworks.find(
+      (f: Json) =>
+        (f.model ?? spec.model.id) === spec.model.id &&
+        ((f.controller === spec.controller.id &&
+          f.value_function === spec.value_function.id) ||
+          (f.training_controller === spec.controller.id &&
+            spec.value_function.id === "zero")),
+    ) ??
+    meta.frameworks[0];
   const pluginSelect = (kind: string) => {
-    const ref = spec[kind];
-    const plugin = plugins.find((p) => p.kind === kind && p.id === ref.id);
+    const ref = spec[kind],
+      plugin = plugins.find((p) => p.kind === kind && p.id === ref.id);
     return (
       <section className="card" key={kind}>
         <h3>
           {
             (
               {
-                model: "模型",
-                controller: "控制器",
-                value_function: "价值函数",
+                model: "模型参数",
+                controller: "框架参数",
+                value_function: "价值组件参数",
               } as Json
             )[kind]
           }
         </h3>
-        <select
-          value={ref.id}
-          onChange={(e) => {
-            const draft = {
-              ...spec,
-              [kind]: { id: e.target.value, version: "1", parameters: {} },
-            };
-            if (kind === "model") {
-              draft.solver = {
-                ...spec.solver,
-                backend: ["bhh_steady", "bhh_spatial"].includes(e.target.value)
-                  ? "cpu"
-                  : "gurobi",
-              };
-              draft.evaluation = {
-                ...spec.evaluation,
-                accounting_version: e.target.value.startsWith("bhh")
-                  ? "bhh-cost-v1"
-                  : "legacy-assignment-v1",
-                information_set:
-                  e.target.value === "bhh_finite" ? "oracle" : "online",
-              };
-            }
-            setSpec(draft);
-          }}
-        >
-          {plugins
-            .filter((p) => p.kind === kind)
-            .map((p) => (
-              <option key={p.id}>{p.id}</option>
-            ))}
-        </select>
+        <p>{ref.id}</p>
         {plugin && (
           <ParameterFields
             schema={plugin.parameters_schema}
@@ -439,6 +574,9 @@ function App() {
               setSpec({ ...spec, [kind]: { ...ref, parameters } })
             }
           />
+        )}
+        {!Object.keys(plugin?.parameters_schema.properties ?? {}).length && (
+          <small>当前组件无可调参数。</small>
         )}
       </section>
     );
@@ -466,27 +604,18 @@ function App() {
   const createDataset = () =>
     act(async () => {
       const d = await api("/datasets/generate", {
-        dataset_id:
-          family === "single_level_matching"
-            ? "matching-demo"
-            : family === "bhh"
-              ? "bhh-demo"
-              : "legacy-demo",
-        family,
-        seeds: [10001, 10002, 10003],
-        splits: ["train", "validation", "test"],
-        horizon: 6,
-        num_vehicles: 5,
-        num_cities: 8,
-        orders_per_step: 2,
-        first_mile: "batch",
+        ...generation,
+        family: meta.dataset_family,
       });
       await refresh();
       chooseData(d);
       return d;
-    }, "冻结数据已生成，修订 hash 已选入编辑器");
+    }, "冻结场景已生成，修订 hash 已选入编辑器");
   return (
-    <div className="app">
+    <div
+      className="app"
+      style={{ "--accent": meta.accent } as React.CSSProperties}
+    >
       <aside>
         <div className="brand">
           <span className="brand-icon">◈</span>
@@ -496,22 +625,39 @@ function App() {
         </div>
         <div className="nav-label">研究工作台</div>
         <nav>
-          {pages.map((p, i) => (
-            <button
-              key={p}
-              className={page === p ? "active" : ""}
-              onClick={() => {
-                setPage(p);
-                setResult(null);
-              }}
-            >
-              <span>
-                {["◫", "▤", "⌘", "≡", "▧", "⇄", "▷", "⌁", "⤓", "⊙"][i]}
-              </span>
-              {p}
-            </button>
-          ))}
+          {pages
+            .filter((p) => p !== "BHH 分析" || meta.id === "bhh")
+            .map((p, i) => (
+              <button
+                key={p}
+                className={page === p ? "active" : ""}
+                onClick={() => {
+                  setPage(p);
+                  setResult(null);
+                }}
+              >
+                <span>
+                  {["◫", "▤", "⌘", "≡", "▧", "⇄", "▷", "⌁", "⤓", "⊙"][i]}
+                </span>
+                {p}
+              </button>
+            ))}
         </nav>
+        <label className="model-selector">
+          论文模型族
+          <select
+            aria-label="论文模型族"
+            value={meta.id}
+            onChange={(e) => onFamily(e.target.value)}
+          >
+            {families.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+          <small>参数 · 数据 · 框架 · 数学 · 结果完全切换</small>
+        </label>
         <div className="sidebar-footer">
           <span className="dot" />
           本地工作空间<small>冻结数据 · 独立任务 · 可追溯</small>
@@ -521,9 +667,11 @@ function App() {
         <header>
           <div>
             <div className="eyebrow">DRL CO / LOCAL RESEARCH PLATFORM</div>
-            <h1>{page}</h1>
+            <h1>
+              {page} <span className="family-name">{meta.name}</span>
+            </h1>
           </div>
-          <div className="badge">LOCAL ONLY · v0.1</div>
+          <div className="badge">LOCAL ONLY · v0.2</div>
         </header>
         {error && (
           <div role="alert" className="error">
@@ -543,8 +691,8 @@ function App() {
                 <span className="eyebrow">REPRODUCIBLE BY DESIGN</span>
                 <h2>把每一次实验，变成可验证的证据。</h2>
                 <p>
-                  单层匹配、Candidate SAC 与
-                  BHH。统一数据版本，记录真实决策，清楚区分运营收益与求解目标。
+                  {meta.name}{" "}
+                  独立研究工作区。统一批实验协议，记录真实决策，清楚区分运营收益与求解目标。
                 </p>
                 <button
                   className="primary"
@@ -610,22 +758,17 @@ function App() {
             <section className="card">
               <h3>生成可重复的示例数据</h3>
               <p>
-                三个固定场景分别分配 train / validation /
-                test；生成后保存原始、归一化和派生数据，后续算法读取同一快照。
+                生成当前模型包的数据。建议用 N 个不同 seed 的 test
+                场景形成统计样本；学习组件使用独立 train / validation 场景。
               </p>
-              <div className="row">
-                <select
-                  value={family}
-                  onChange={(e) => setFamily(e.target.value)}
-                >
-                  <option>single_level_matching</option>
-                  <option>legacy_dispatch</option>
-                  <option>bhh</option>
-                </select>
-                <button className="primary" onClick={createDataset}>
-                  生成冻结修订
-                </button>
-              </div>
+              <ParameterFields
+                schema={meta.generation_schema}
+                value={generation}
+                onChange={setGeneration}
+              />
+              <button className="primary" onClick={createDataset}>
+                生成冻结修订
+              </button>
             </section>
             <section className="card">
               <h3>数据修订</h3>
@@ -787,6 +930,63 @@ function App() {
         )}
         {page === "实验编辑器" && (
           <>
+            <section className="card">
+              <h3>模型包实验模板</h3>
+              <select
+                aria-label="实验模板"
+                defaultValue=""
+                onChange={(e) => {
+                  const preset = meta.templates.find(
+                    (t: Json) => t.id === e.target.value,
+                  )?.config;
+                  if (!preset) return;
+                  const draft = defaultSpec(meta);
+                  for (const [key, value] of Object.entries(preset)) {
+                    draft[key] =
+                      typeof value === "object" &&
+                      value !== null &&
+                      !Array.isArray(value)
+                        ? { ...draft[key], ...(value as Json) }
+                        : value;
+                  }
+                  draft.family = meta.id;
+                  draft.framework_id = undefined;
+                  draft.dataset = {
+                    ...spec.dataset,
+                    split: draft.dataset.split ?? spec.dataset.split,
+                    scenario_ids: [],
+                  };
+                  for (const kind of [
+                    "model",
+                    "controller",
+                    "value_function",
+                  ]) {
+                    const p = plugins.find(
+                      (p) => p.kind === kind && p.id === draft[kind].id,
+                    );
+                    draft[kind].parameters = {
+                      ...schemaDefaults(p?.parameters_schema ?? {}),
+                      ...draft[kind].parameters,
+                    };
+                  }
+                  setSpec(draft);
+                }}
+              >
+                <option value="">选择当前模型包的实验模板…</option>
+                {meta.templates
+                  .filter((t: Json) => t.config.model)
+                  .map((t: Json) => (
+                    <option key={t.id} value={t.id}>
+                      {t.id}
+                    </option>
+                  ))}
+              </select>
+              <small>
+                模板不会跨模型族；保留当前选择的冻结数据。学习模板仍需正确的数据
+                split 与 checkpoint。
+              </small>
+            </section>
+
             <div className="toolbar">
               <input
                 aria-label="实验名称"
@@ -824,6 +1024,52 @@ function App() {
                 ))}
               </select>
             </div>
+            <section className="card model-card">
+              <h3>当前实验框架</h3>
+              <select
+                aria-label="实验框架"
+                value={framework.id}
+                onChange={(e) => {
+                  const f = meta.frameworks.find(
+                    (f: Json) => f.id === e.target.value,
+                  );
+                  selectFramework(f, !!f.training_required);
+                }}
+              >
+                {meta.frameworks.map((f: Json) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+              {framework.training_required && (
+                <label>
+                  学习组件阶段
+                  <select
+                    aria-label="学习组件阶段"
+                    value={
+                      spec.controller.id.startsWith("train_")
+                        ? "train"
+                        : "evaluation"
+                    }
+                    onChange={(e) =>
+                      selectFramework(framework, e.target.value === "train")
+                    }
+                  >
+                    <option value="train">Training / 拟合</option>
+                    <option value="evaluation">
+                      Held-out evaluation / 评估
+                    </option>
+                  </select>
+                </label>
+              )}
+              <p>
+                {framework.training_required
+                  ? "该组件需要 checkpoint；拟合和评估使用不同的数据 split。"
+                  : "当前为非学习型实验框架，直接运行，无拟合阶段。"}
+              </p>
+            </section>
+            <MathPanel family={meta} spec={spec} />
             <div className="three">
               {["model", "controller", "value_function"].map(pluginSelect)}
             </div>
@@ -831,13 +1077,28 @@ function App() {
               <section className="card">
                 <h3>求解资源</h3>
                 <ParameterFields
-                  schema={
-                    plugins.find(
-                      (p) =>
-                        p.kind === "solver_backend" &&
-                        p.id === spec.solver.backend,
-                    )?.parameters_schema ?? {}
-                  }
+                  schema={{
+                    properties: {
+                      time_limit_seconds: {
+                        type: "number",
+                        default: 30,
+                        minimum: 0.1,
+                      },
+                      mip_gap: {
+                        type: "number",
+                        default: 0,
+                        minimum: 0,
+                        maximum: 1,
+                      },
+                      threads: {
+                        type: "integer",
+                        default: 1,
+                        minimum: 1,
+                        maximum: 16,
+                      },
+                      seed: { type: "integer", default: 0, minimum: 0 },
+                    },
+                  }}
                   value={spec.solver.parameters}
                   onChange={(parameters) =>
                     setSpec({ ...spec, solver: { ...spec.solver, parameters } })
@@ -888,6 +1149,11 @@ function App() {
                 </p>
               </section>
             </div>
+            <BatchBuilder
+              spec={spec}
+              plugins={plugins}
+              onApply={(b) => setRaw(pretty(b))}
+            />
             <section className="card">
               <h3>完整 JSON / 批次扫描</h3>
               <textarea
@@ -1159,7 +1425,6 @@ function App() {
               <div className="row">
                 <button
                   onClick={() => {
-                    setFamily("bhh");
                     setPage("数据管理");
                   }}
                 >
@@ -1167,18 +1432,9 @@ function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setSpec({
-                      ...defaultSpec(),
-                      name: "BHH 稳态",
-                      dataset: spec.dataset,
-                      model: { id: "bhh_steady", version: "1", parameters: {} },
-                      solver: { ...spec.solver, backend: "cpu" },
-                      evaluation: {
-                        ...spec.evaluation,
-                        accounting_version: "bhh-cost-v1",
-                        information_set: "oracle",
-                      },
-                    });
+                    selectFramework(
+                      meta.frameworks.find((f: Json) => f.id === "steady"),
+                    );
                     setPage("实验编辑器");
                   }}
                 >
@@ -1186,22 +1442,9 @@ function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setSpec({
-                      ...defaultSpec(),
-                      name: "BHH 滚动调度",
-                      dataset: spec.dataset,
-                      model: { id: "bhh_finite", version: "1", parameters: {} },
-                      controller: {
-                        id: "rolling_horizon",
-                        version: "1",
-                        parameters: {},
-                      },
-                      evaluation: {
-                        ...spec.evaluation,
-                        accounting_version: "bhh-cost-v1",
-                        information_set: "online",
-                      },
-                    });
+                    selectFramework(
+                      meta.frameworks.find((f: Json) => f.id === "rolling"),
+                    );
                     setPage("实验编辑器");
                   }}
                 >
@@ -1269,6 +1512,10 @@ function App() {
               </label>
             </section>
           </>
+        )}
+        {page === "数学模型" && <MathPanel family={meta} spec={spec} />}
+        {page === "实验分析" && (
+          <AnalysisPanel family={meta} runs={runs} api={api} />
         )}
         {page === "诊断" && (
           <>
@@ -1379,6 +1626,35 @@ function RunTable({
     </table>
   ) : (
     <div className="empty">还没有运行。先准备数据，再提交一个实验。</div>
+  );
+}
+function App() {
+  const [families, setFamilies] = useState<Json[]>([]),
+    [id, setId] = useState(localStorage.getItem("model-family") ?? "single"),
+    [error, setError] = useState("");
+  useEffect(() => {
+    requestApi("/families")
+      .then(setFamilies)
+      .catch((e) => setError(String(e)));
+  }, []);
+  const meta = families.find((f) => f.id === id) ?? families[0];
+  if (!meta)
+    return (
+      <main>
+        <h1>实验平台</h1>
+        <p>{error || "加载独立模型包…"}</p>
+      </main>
+    );
+  return (
+    <Workspace
+      key={meta.id}
+      meta={meta}
+      families={families}
+      onFamily={(id) => {
+        localStorage.setItem("model-family", id);
+        setId(id);
+      }}
+    />
   );
 }
 createRoot(document.getElementById("root")!).render(

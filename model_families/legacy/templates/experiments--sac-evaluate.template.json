@@ -1,0 +1,1 @@
+{"name":"Held-out Candidate SAC evaluation","dataset":{"dataset_id":"legacy-demo","revision":"latest","split":"test"},"model":{"id":"legacy_dispatch"},"controller":{"id":"candidate_sac","parameters":{"checkpoint_run":"REPLACE_WITH_SAC_TRAIN_RUN_ID"}}}

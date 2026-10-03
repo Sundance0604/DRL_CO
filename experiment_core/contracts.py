@@ -49,7 +49,7 @@ class SolverRef(Contract):
 
 class Evaluation(Contract):
     information_set: Literal["online", "oracle"] = "online"
-    accounting_version: Literal["legacy-assignment-v1", "bhh-cost-v1"] = (
+    accounting_version: str = (
         "legacy-assignment-v1"
     )
     terminal_policy: Literal["report_pending", "drain_committed"] = "report_pending"
@@ -60,15 +60,25 @@ class Evaluation(Contract):
 
 
 class Execution(Contract):
+    training_seeds: Annotated[list[Annotated[int, Field(ge=0, le=2_000_000_000)]], Field(min_length=1, max_length=100)] | None = None
     policy_seeds: list[Annotated[int, Field(ge=0, le=2_000_000_000)]] = Field(
         default_factory=lambda: [0], min_length=1, max_length=100
     )
     save_trace: bool = True
     timeout_seconds: Positive = 300
 
+    @model_validator(mode="after")
+    def unique_seeds(self):
+        for values in (self.policy_seeds, self.training_seeds):
+            if values is not None and len(values) != len(set(values)):
+                raise ValueError("replication seeds must be unique")
+        return self
+
 
 class RunSpec(Contract):
     schema_version: Literal["experiment-spec/v1"] = "experiment-spec/v1"
+    family: Identifier | None = None
+    framework_id: Identifier | None = None
     name: str = Field(min_length=1, max_length=200)
     dataset: DatasetRef
     model: PluginRef
@@ -79,6 +89,13 @@ class RunSpec(Contract):
     execution: Execution = Field(default_factory=Execution)
 
 
+class RangeSweep(Contract):
+    start: float
+    stop: float
+    step: Positive
+    scale: Literal["linear", "log"] = "linear"
+
+
 class BatchSpec(Contract):
     schema_version: Literal["batch-spec/v1"] = "batch-spec/v1"
     base_spec: RunSpec
@@ -86,147 +103,7 @@ class BatchSpec(Contract):
         default_factory=lambda: [{}], min_length=1, max_length=100
     )
     sweeps: dict[str, list] = Field(default_factory=dict)
-
-
-class MatchingParameters(Contract):
-    speed: Positive = 20
-    capacity: Annotated[int, Field(ge=1, le=100)] = 7
-    loaded_cost: Nonnegative = 10
-    empty_cost: Nonnegative = 10
-    waiting_cost: Nonnegative = 0
-    expiry_cost: Nonnegative = 300
-    max_delay: Annotated[int, Field(ge=0, le=12)] = 3
-    tie_break: Nonnegative = 1
-    cross_hub: bool = True
-    reposition: bool = False
-
-
-class MyopicParameters(Contract):
-    pass
-
-
-class RolloutParameters(Contract):
-    samples: Annotated[int, Field(ge=1, le=16)] = 2
-    candidate_cross_hub: list[bool] = Field(
-        default_factory=lambda: [False, True], min_length=1
-    )
-    expected_orders_per_step: Annotated[int, Field(ge=0, le=100)] = 2
-
-
-class RollingParameters(Contract):
-    planning_horizon: Annotated[int, Field(ge=2, le=100)] = 12
-    commit_periods: Annotated[int, Field(ge=1, le=100)] = 2
-    completion_extension: Annotated[int, Field(ge=0, le=100)] = 6
-
-    @model_validator(mode="after")
-    def horizons(self):
-        if self.commit_periods > self.planning_horizon:
-            raise ValueError("commit_periods must not exceed planning_horizon")
-        return self
-
-
-class FluidParameters(Contract):
-    recompute: bool = False
-    multiplier: Nonnegative = 1
-    expected_orders_per_step: Annotated[int, Field(ge=0, le=100)] = 2
-
-
-class LearnedParameters(Contract):
-    checkpoint_run: Identifier
-    multiplier: Nonnegative = 1
-
-
-class TrainParameters(Contract):
-    epochs: Annotated[int, Field(ge=1, le=1000)] = 30
-    learning_rate: Positive = 0.01
-
-
-class SacTrainParameters(TrainParameters):
-    learning_rate: Positive = 0.0003
-
-
-class LegacyParameters(Contract):
-    capacity: Annotated[int, Field(ge=1, le=100)] = 7
-
-
-class SacParameters(Contract):
-    checkpoint_run: Identifier
-    stochastic: bool = False
-
-
-class BHHParameters(Contract):
-    a: Nonnegative = 0.05
-    b: Nonnegative = 0.6
-    rho: Nonnegative = 0.2
-    a_by_city: list[Nonnegative] | None = Field(
-        default=None, min_length=2, max_length=2
-    )
-    b_by_city: list[Nonnegative] | None = Field(
-        default=None, min_length=2, max_length=2
-    )
-    rho_by_city: list[Nonnegative] | None = Field(
-        default=None, min_length=2, max_length=2
-    )
-    period_duration: Positive = 1
-    tau: Annotated[int, Field(ge=1, le=40)] = 2
-    demand_rate: Positive = 30
-    hv_capacity: Annotated[int, Field(ge=1, le=100)] = 12
-    av_capacity: Annotated[int, Field(ge=1, le=1000)] = 120
-    hv_cost: Nonnegative = 40
-    av_cost: Nonnegative = 15
-    waiting_cost: Positive = 5
-    finite_waiting_cost: Nonnegative = 0
-    resort_cost: Nonnegative = 0
-    hv_fleet: list[Annotated[int, Field(ge=0, le=20)]] = Field(
-        default_factory=lambda: [4, 4], min_length=2, max_length=2
-    )
-    av_fleet: list[Annotated[int, Field(ge=0, le=20)]] = Field(
-        default_factory=lambda: [2, 2], min_length=2, max_length=2
-    )
-    wave_max: Annotated[float, Field(ge=1, le=10000)] = 1000
-    mode: Literal["hybrid", "direct", "hub"] = "hybrid"
-
-
-class SpatialParameters(Contract):
-    radius: Positive = 1
-    speed: Positive = 1
-    samples: Annotated[int, Field(ge=1, le=32)] = 4
-    seed: Annotated[int, Field(ge=0)] = 11
-    stop_counts: list[Annotated[int, Field(ge=1, le=8)]] = Field(
-        default_factory=lambda: [1, 2, 4, 6], min_length=1, max_length=8
-    )
-
-
-class BHHSteadyParameters(BHHParameters):
-    tau: Positive = 2
-    period_duration: Literal[1] = 1
-
-
-class Generation(Contract):
-    schema_version: Literal["dataset-generation/v1"] = "dataset-generation/v1"
-    dataset_id: Identifier
-    family: Literal["single_level_matching", "legacy_dispatch", "bhh"] = (
-        "single_level_matching"
-    )
-    seeds: list[Annotated[int, Field(ge=0, le=2_000_000_000)]] = Field(
-        default_factory=lambda: [10001, 10002, 10003], min_length=1, max_length=100
-    )
-    splits: list[Literal["train", "validation", "test"]] = Field(
-        default_factory=lambda: ["train", "validation", "test"], min_length=1
-    )
-    horizon: Annotated[int, Field(ge=1, le=200)] = 8
-    num_vehicles: Annotated[int, Field(ge=0, le=100)] = 5
-    num_cities: Annotated[int, Field(ge=2, le=20)] = 8
-    orders_per_step: Annotated[int, Field(ge=0, le=100)] = 2
-    first_mile: Literal["batch", "direct", "none"] = "batch"
-
-    @model_validator(mode="after")
-    def unique(self):
-        if len(self.seeds) != len(set(self.seeds)):
-            raise ValueError("scenario seeds must be unique")
-        if len(self.splits) not in (1, len(self.seeds)):
-            raise ValueError("provide one split or one per seed")
-        return self
+    ranges: dict[str, "RangeSweep"] = Field(default_factory=dict)
 
 
 class PlatformError(Exception):
@@ -261,3 +138,19 @@ def strict_json(text):
         return json.loads(text, parse_constant=reject, object_pairs_hook=unique)
     except json.JSONDecodeError as exc:
         raise PlatformError("INVALID_JSON", str(exc)) from exc
+
+
+# Backward-compatible public names. New platform code uses family-owned schemas.
+def __getattr__(name):
+    from importlib import import_module
+    aliases = {
+        "MatchingParameters": "single", "RolloutParameters": "single",
+        "FluidParameters": "single", "LearnedParameters": "single", "TrainParameters": "single",
+        "LegacyParameters": "legacy", "SacParameters": "legacy", "SacTrainParameters": "legacy",
+        "BHHParameters": "bhh", "BHHSteadyParameters": "bhh", "SpatialParameters": "bhh", "RollingParameters":"bhh",
+    }
+    if name == "Generation":
+        return import_module("model_families.single.generation").Generation
+    if name in aliases:
+        return getattr(import_module(f"model_families.{aliases[name]}.parameters"), name)
+    raise AttributeError(name)

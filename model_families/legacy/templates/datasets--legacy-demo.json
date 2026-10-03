@@ -1,0 +1,1 @@
+{"dataset_id":"legacy-demo","family":"legacy_dispatch","seeds":[10001,10002,10003],"splits":["train","validation","test"],"horizon":6,"num_vehicles":5,"num_cities":8,"orders_per_step":2}

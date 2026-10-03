@@ -4,6 +4,26 @@
 
 ## 已交付内容
 
+### v0.2 第一阶段追加验收
+
+三族研究实现已迁入独立 `model_families/{single,legacy,bhh}`，旧导入路径保留兼容转发。共享平台不拥有研究参数、数据生成、数学表达式、框架、metrics 或 trace 实现。新增模型选择器位于“诊断”下方，固定蓝/橙/青绿 accent；整个数据、配置、框架、数学与结果上下文切换，不只是切换 controller。数组参数默认工厂也纳入 Schema 展示。
+
+全模型共用 range / step / explicit-values 批协议和场景/策略/训练 seed 元数据；各模型包拒绝自身不支持的组件与联合参数。single 默认非学习框架直接执行，只有选中需拟合组件才显示学习阶段。实验模板与按框架的数学摘要由本模型包提供。
+
+新增 15 项测试：导入边界、三族注册元数据、全族真实参数网格展开、联合约束、独立场景样本计数、重复 policy 运行不增 n、逐 t profit/cost/指派/送达恒等式、不变式、CI 的 n<2 与非有限防护、精确配对、缺失/失败明确拒绝、五类图形输出、离线 plotting.py 重绘、原始数据 ZIP、模型族 API 过滤和图形下载。追加后全量 **48 项通过**；保留一条已知 Starlette/AnyIO 弃用警告。前端 TypeScript 与生产构建通过，完整 npm audit 为 0 已知漏洞。
+
+真实 computational smoke 使用 4 个冻结 test 场景、myopic/fluid/rollout、2 个 empty-cost 条件，共 6 个 single 运行（24 个 scenario-condition 记录），全部 COMPLETED；同时运行 legacy capacity 和 BHH tau 的各 2 个条件。实际生成比较、敏感性、逐 t 动态、paired difference 和热力图，输出 PDF/SVG/600 dpi PNG 与绘图配置、样本/逐期/状态/统计表和可独立 Python 重绘脚本。tiny 验收不构成算法优越性结论，4 个样本的 CI 仅用于验证统计路径。
+
+浏览器检查了三族数据/参数/框架切换、独立数学界面、single 多运行选择，并从网页实际生成了两个指标 panel 的三算法比较图；本机 PNG 已视觉检查，矢量 PDF/SVG 存在且可下载。产物与截图保留在忽略 Git 的 `workspace/`。运行 `python -m experiment_core.phase1_validation` 可重复小规模验收，结果写入 `workspace/phase1-validation.json`；它只适用于无第二个 Coordinator 的独立工作区。
+
+旧模块的导入和 `python -m ...` 命令行入口均保留转发。拆包后实际运行 `python -m model.mt_prototype` 的完整 420 场景基准，进程正常结束，容量、订单生命周期与单次时钟推进等不变式全部通过；这项兼容检查同样不构成算法性能提升结论。
+
+当前只为 single 开放论文分析 adapter；DRL/SAC 与 BHH 的分析仍明确未开放。response surface、多重检验、聚类 bootstrap、算法/训练随机性方差分解、原生 macOS 和大规模统计实验仍未验证。逐期成本仍是指派时的计划成本加周期惩罚，非实际现金支出；oracle 不虚构 operational trace。
+
+复查修复了 framework 标签与组件不一致、模型切换后的数组默认值遗漏、变体 seed 展开数量上限、重复关闭协调器、索引恢复中的 training seed，以及跨族同名 metric 的错误定义匹配。研究口径均在导出中保留。
+
+以下保留 v0.1 平台实施的历史回归与模型修正记录；其路径现通过兼容入口转发到本模型族。
+
 - React + TypeScript 本地页面：总览、数据管理、实验编辑、队列、运行详情、比较、回放、BHH 分析、复现和诊断。
 - 公共实验核心与 FastAPI/CLI，四维注册表、严格 JSON/Pydantic 校验、生成的 OpenAPI/JSON Schema、冻结版本数据与 train/test 分离。
 - 单层匹配 myopic、流体价值、真实 rollout、新特征监督训练与评估、完全信息松弛上界。

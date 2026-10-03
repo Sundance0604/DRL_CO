@@ -213,7 +213,7 @@ def create_app(coordinator=None, token=None, port=8765):
 
     @app.get("/api/v1/health")
     def health():
-        return {"status": "ok", "version": "0.1.0", "workspace": str(workspace())}
+        return {"status": "ok", "version": "0.2.0", "workspace": str(workspace())}
 
     @app.get("/api/v1/session")
     def session():
@@ -247,8 +247,13 @@ def create_app(coordinator=None, token=None, port=8765):
         }
 
     @app.get("/api/v1/plugins")
-    def plugins():
-        return descriptors()
+    def plugins(family: str | None = None):
+        return descriptors(family)
+
+    @app.get("/api/v1/families")
+    def families():
+        from experiment_core.families import all_families
+        return [f.manifest() for f in all_families()]
 
     @app.get("/api/v1/metrics")
     def metrics():
@@ -263,8 +268,10 @@ def create_app(coordinator=None, token=None, port=8765):
         return schemas()[schema_id]
 
     @app.get("/api/v1/datasets")
-    def datasets():
-        return list_datasets()
+    def datasets(family: str | None = None):
+        from experiment_core.families import get_family
+        items = list_datasets()
+        return [d for d in items if d["family"] == get_family(family).DATASET_FAMILY] if family else items
 
     @app.post("/api/v1/datasets/generate")
     def dataset_generate(config: dict):
@@ -329,8 +336,43 @@ def create_app(coordinator=None, token=None, port=8765):
         return co().batch(identifier(bid))
 
     @app.get("/api/v1/runs")
-    def runs():
-        return co().list_runs()
+    def runs(family: str | None = None):
+        from experiment_core.families import get_family
+        items = co().list_runs()
+        return [r for r in items if get_family(r["spec"]["model"]["id"]).FAMILY_ID == get_family(family).FAMILY_ID] if family else items
+
+    @app.post("/api/v1/analyses")
+    def analysis_create(config: dict):
+        from experiment_core.analysis import create_analysis
+        return create_analysis(config)
+
+    @app.post("/api/v1/results/export")
+    def results_export(config: dict):
+        from experiment_core.analysis_contracts import AnalysisSpec
+        from experiment_core.analysis import export_results
+        checked = AnalysisSpec(run_ids=config["run_ids"])
+        return export_results(checked.run_ids)
+
+    @app.get("/api/v1/analyses")
+    def analyses(family: str | None = None):
+        from experiment_core.analysis import list_analyses
+        return list_analyses(family)
+
+    @app.get("/api/v1/analyses/{aid}")
+    def analysis(aid: str):
+        from experiment_core.analysis import get_analysis
+        return get_analysis(aid)
+
+    @app.get("/api/v1/analyses/{aid}/artifacts/{name}")
+    def analysis_artifact(aid: str, name: str):
+        from experiment_core.analysis import get_analysis
+        item = get_analysis(aid)
+        if name not in item["artifacts"]:
+            raise PlatformError("NOT_FOUND", "analysis artifact not registered")
+        target = (workspace()/"analyses"/identifier(aid)/identifier(name)).resolve()
+        if not target.is_relative_to((workspace()/"analyses"/identifier(aid)).resolve()):
+            raise PlatformError("ARTIFACT_PATH", "artifact escapes analysis directory")
+        return FileResponse(target)
 
     @app.get("/api/v1/runs/{rid}")
     def run(rid: str):

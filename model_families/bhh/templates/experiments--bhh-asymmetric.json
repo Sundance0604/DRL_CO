@@ -1,0 +1,1 @@
+{"name":"BHH asymmetric cities and fleets","dataset":{"dataset_id":"bhh-demo","revision":"latest","split":"test"},"model":{"id":"bhh_finite","parameters":{"a_by_city":[0.03,0.08],"b_by_city":[0.4,0.9],"rho_by_city":[0.1,0.3],"hv_fleet":[3,1],"av_fleet":[2,1]}},"evaluation":{"accounting_version":"bhh-cost-v1","information_set":"oracle"}}

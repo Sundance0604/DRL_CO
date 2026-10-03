@@ -1,0 +1,1 @@
+{"name":"Hub-time value training smoke","dataset":{"dataset_id":"matching-demo","revision":"latest","split":"train"},"model":{"id":"single_level_matching","parameters":{}},"controller":{"id":"train_value","parameters":{"epochs":30}},"value_function":{"id":"zero"}}

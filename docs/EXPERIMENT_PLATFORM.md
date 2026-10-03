@@ -39,7 +39,70 @@ React / CLI
     -> metrics / events / trace / artifacts / source snapshot
 ```
 
-`frontend/` 只展示与提交实验，不执行优化逻辑。`platform_api/` 提供本地 API。`experiment_core/` 管理契约、冻结数据、插件、执行、结果、复现和诊断。原有 `model/` 与 `drl_co/` 保留；适配器调用其实现，不让浏览器直接读取任意文件或加载任意模块。
+`frontend/` 只展示与提交实验，不执行优化逻辑。`platform_api/` 提供本地 API。`experiment_core/` 只管理通用契约、调度、冻结存储、结果、统计基础设施、绘图与复现。研究实现已移入独立的 `model_families/single`、`model_families/legacy`、`model_families/bhh`。原有 `model/`、`drl_co/` 导入路径保留单向兼容入口；它们不再拥有另一套实现。
+
+## v0.2：模型族隔离与论文实验分析
+
+三套模型仍共用一个 Python 环境、后端和存储。参数、生成/导入数据接口、数学摘要、框架、runner、metrics、trace 和模板由各自模型包拥有；single 不导入旧 DRL/SAC 引擎，BHH 也不复用其他族的研究逻辑。边界由导入检查测试约束。
+
+“诊断”下方的模型族选择器切换整个工作区，分别使用蓝色 DRL/SAC、橙色 BHH、青绿色 single，并始终显示名称。数据、运行列表、可选框架、参数与数学显示都按模型族过滤。已存的本族配置可恢复；不允许在当前工作区的 JSON 批次中混入其他模型族。图表调色板独立于这些 UI accent。
+
+single 默认 myopic、fluid、rollout、oracle 直接运行。仅选中 learned component 时出现拟合/评估阶段；已有 learned hub value 是监督回归，不是 DRL。旧 SAC 的学习框架声明自己的 Training 阶段。数学页按模型和框架显示实现摘要，不宣称覆盖论文全部推导。
+
+### 全模型批实验与样本口径
+
+批实验表单自动读取当前模型包的 Schema，包括数组参数的真实默认值。支持数字范围、线性间隔、对数倍率和离散 JSON 值；嵌套数组可按 `model.parameters.hv_fleet.0` 扫描。表单先写入下方批次 JSON，再用“预览计划”检查并提交。参数不属于当前组件或违反联合约束时明确拒绝，不会自动换模型。
+
+```json
+{
+  "base_spec": {"name":"sensitivity","dataset":{"dataset_id":"single-demo","revision":"EXACT_HASH"},"model":{"id":"single_level_matching"}},
+  "variants": [
+    {"controller":{"id":"myopic"},"value_function":{"id":"zero"}},
+    {"controller":{"id":"rollout"},"value_function":{"id":"zero"}}
+  ],
+  "ranges": {"model.parameters.empty_cost":{"start":1,"stop":3,"step":1}},
+  "sweeps": {"model.parameters.cross_hub":[false,true]}
+}
+```
+
+`EXACT_HASH` 必须替换成已冻结数据的真实修订。端点仅在落于网格时包含；所有轴只支持升序，log 的 step 表示大于 1 的倍率。展开后最多 1000 个运行，各模型的可选组件及物理限制仍单独校验。不是任意原型函数中的隐藏常量都已成为可扫描参数，界面只提供已正式声明并接入 runner 的参数。
+
+| 层级 | 实际含义 |
+|---|---|
+| model family / framework | 研究模型与算法组件 |
+| condition_id | 不含 seed 的物理、算法、求解与评估条件 hash |
+| dataset revision / scenario | 冻结的数据层；不同物理实例才是独立场景样本 |
+| scenario_seed | 生成场景的随机种子；导入的非生成实例可为空 |
+| policy_seed | 策略的随机种子，不等同于数据 seed |
+| training_seed | 仅拟合阶段的随机种子，非学习框架不创建训练过程 |
+| run | 一次运行可以覆盖多个场景；运行个数不等于统计 n |
+
+同一批算法读取相同冻结场景，不重新各自生成数据。确定性策略通常只使用 policy seed 0；增加 seed 或重复同一运行不会增加独立场景样本数。BHH 稳态理论的参数格点不是随机试验样本。参数条件用于敏感性分析，不自动混成 CI 的样本。
+
+### single 完整记录与导出
+
+`single-trace-step/v2` 每个已执行 t 保存 before/after、当时可见的 observation、到达订单、指派/路径/重定位、求解状态/界/gap、账目组成与状态不变式。measurement 包含逐期/累计 profit、objective、assignment-accounted cost、订单池、指派/送达订单与载荷、空闲/在途/重定位车辆和车上载荷。已知 future realization 只在完整物理 trace/冻结数据中保留，不作为在线决策 observation 暴露。
+
+`operating_profit` 是原有指派时确认收益；`business_cost` 是计划路径/重定位成本加周期惩罚，不是实际现金支出。计划距离不冒充实际里程，未完成业务与未知实际里程保留 null / reason。oracle 是松弛上界，没有虚构执行 trace。旧 v0.1 记录没有这些 measurement，不能补造过去的逐期数据。
+
+网页“实验分析”可选多个完成的 single 评估运行，按数据、框架与参数检查选择；拟合任务不当作评估样本。支持多算法均值/场景散点/CI、单参数曲线与置信带、双参数热力图、逐 t 曲线及同场景配对差值。两参数热力图不插值、不填补缺失格点；response surface 暂不开放。
+
+统计时先对同条件同冻结实例的 policy seeds 求平均，再对独立实例计算 mean、sample SD、min/max、pointwise Student-t CI。n<2 时不生成 CI。相同物理内容的重复实例不会重复计权。不同数据/物理参数/源码/评估口径分 panel，不池化。配对要求每个相容 stratum 正好两个条件，冻结实例集合完全一致。失败、不可用指标和缺失 trace 明确报错；augmented objective 只作诊断，不能解释为策略收益改善。算法随机性/训练随机性的进一步方差分解尚未实现。
+
+Python 使用 renderer-neutral 的配置与表格协议，当前 backend 是 Matplotlib Agg（可替换，不绑定实验存储）。输出 3.35 inch 单栏或 7 inch 双栏、facet/multi-panel、PDF/SVG 矢量图与默认 600 dpi PNG，采用 serif 字体、Okabe-Ito 配色、不同 marker/线型与热力图数值标注支持黑白阅读。默认论文标签为英文；目标期刊的最终字号/标签仍需作者检查。样式与 CI 实现依据 [Matplotlib 官方样式接口](https://matplotlib.org/stable/users/explain/customizing.html) 与 [SciPy Student-t 文档](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.t.html)。
+
+产物在 `workspace/analyses/a-.../`，网页直接预览 Python 生成的 PNG，不截取 dashboard。下载 `analysis.zip` 可离线查看/重绘，包含 `plotting.py`、锁定的最小绘图依赖、`plotting-config.json`、`plot-data.json`、`observations.csv/json`、`periods.csv/json`、`states.jsonl`、`statistics.csv`、`paired-differences.csv`、指标定义、resolved runs 与冻结数据。CSV 是 tidy long-form 的 metric/value 表，JSON 保留 null、嵌套状态和原因，适合 Python 的多实验样本图。仅导出数据时无需先选图。
+
+```powershell
+# config.json 中填真实 run_ids、kind、metrics 等，必须来自 single 评估任务
+.\scripts\exp.ps1 analysis create --config config.json --json
+.\scripts\exp.ps1 analysis export --config run_ids.json --json
+.\scripts\exp.ps1 analysis list --json
+# 解压绘图包后；可在仅安装 requirements.txt 的 Python 环境中运行
+python plotting.py
+```
+
+第一阶段 DRL/SAC 与 BHH 已接入同一批实验协议，但尚未开放此论文分析接口；它们可在自己的包中提供 `analysis_adapter()`，无需改写现有实验存储或混用 single 的 metrics。当前统计工具仍假设独立生成场景，不提供聚类 bootstrap、多重检验、优化失败的敏感性估计或显著性自动宣称。
 
 默认工作区为仓库 `workspace/`，也可以设置 `DRL_WORKSPACE`。数据、权重、日志和结果均不纳入 Git。SQLite 是可重建索引；运行目录中的 JSON 事实记录才是恢复依据。每个工作区只能有一个协调器；终端检测到本工作区网页服务后连接现有 API，不启动第二个写入者。
 

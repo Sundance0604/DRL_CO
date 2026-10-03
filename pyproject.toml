@@ -1,10 +1,11 @@
 [project]
 name = "drl-co-experiment-platform"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.11,<3.12"
 dependencies = [
   "fastapi==0.115.12", "uvicorn==0.34.2", "pydantic==2.11.4",
   "numpy==2.2.5", "scipy==1.15.3", "networkx==3.4.2",
+  "matplotlib==3.10.8",
   "gurobipy==10.0.3", "torch==2.7.0", "gymnasium==1.1.1", "psutil==7.0.0",
 ]
 

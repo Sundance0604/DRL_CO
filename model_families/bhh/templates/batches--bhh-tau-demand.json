@@ -1,0 +1,1 @@
+{"base_spec":{"name":"BHH tau x Lambda","dataset":{"dataset_id":"bhh-demo","revision":"latest","split":"test"},"model":{"id":"bhh_steady"},"solver":{"backend":"cpu"},"evaluation":{"accounting_version":"bhh-cost-v1","information_set":"oracle"}},"sweeps":{"model.parameters.tau":[1,2,4],"model.parameters.demand_rate":[10,30,60]}}

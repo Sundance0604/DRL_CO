@@ -100,6 +100,14 @@ def execute_command(args):
         return env
     if cmd == "plugins":
         return descriptors()
+    if cmd == "analysis":
+        from .analysis import create_analysis, export_results, list_analyses
+        if args.action == "list":
+            return list_analyses()
+        cfg = read_json(args.config)
+        if args.action == "export":
+            return remote("results/export", cfg) if active_server() else export_results(cfg["run_ids"])
+        return remote("analyses", cfg) if active_server() else create_analysis(cfg)
     if cmd == "schema":
         target = Path(args.output)
         target.mkdir(parents=True, exist_ok=True)
@@ -271,6 +279,7 @@ def main():
             "reproduce",
             "export",
             "serve",
+            "analysis",
         ],
     )
     parser.add_argument("action", nargs="?", default="list")

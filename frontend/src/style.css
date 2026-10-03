@@ -22,7 +22,7 @@ a,
 input,
 select,
 textarea {
-  outline-color: #138579;
+  outline-color: var(--accent, #138579);
 }
 button {
   cursor: pointer;
@@ -42,12 +42,12 @@ button:disabled {
   cursor: not-allowed;
 }
 button.primary {
-  background: #138579;
+  background: var(--accent, #138579);
   color: white;
-  border-color: #138579;
+  border-color: var(--accent, #138579);
 }
 a {
-  color: #138579;
+  color: var(--accent, #138579);
   text-decoration: none;
 }
 input,
@@ -110,7 +110,8 @@ aside {
   inset: 0 auto 0 0;
   background: #fff;
   border-right: 1px solid #e3e9f0;
-  padding: 33px 20px;
+  padding: 25px 18px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -121,7 +122,7 @@ aside {
   font-size: 21px;
   letter-spacing: 1px;
   font-weight: 700;
-  margin-bottom: 43px;
+  margin-bottom: 25px;
 }
 .brand small {
   font-size: 8px;
@@ -129,7 +130,7 @@ aside {
   margin-top: 6px;
 }
 .brand-icon {
-  background: #138579;
+  background: var(--accent, #138579);
   border-radius: 11px;
   color: white;
   font-size: 30px;
@@ -153,7 +154,7 @@ nav button {
   border: none;
   text-align: left;
   background: transparent;
-  padding: 12px 15px;
+  padding: 8px 15px;
 }
 nav button span {
   width: 29px;
@@ -162,12 +163,12 @@ nav button span {
   color: #8093a4;
 }
 nav button.active {
-  color: #138579;
+  color: var(--accent, #138579);
   background: #eaf5f2;
   font-weight: 600;
 }
 nav button.active span {
-  color: #138579;
+  color: var(--accent, #138579);
 }
 .sidebar-footer {
   margin-top: auto;
@@ -209,7 +210,7 @@ header {
 .badge {
   font-size: 10px;
   letter-spacing: 1px;
-  color: #138579;
+  color: var(--accent, #138579);
   background: #e8f4f0;
   border: 1px solid #d4e8e1;
   border-radius: 30px;
@@ -236,7 +237,7 @@ header {
   line-height: 2;
 }
 .hero-art {
-  color: #138579;
+  color: var(--accent, #138579);
   font-size: 130px;
   width: 200px;
   text-align: center;
@@ -519,4 +520,76 @@ summary {
   table {
     font-size: 10px;
   }
+}
+.family-name {
+  font-size: 14px;
+  color: var(--accent);
+  margin-left: 14px;
+}
+.model-selector {
+  border-top: 1px solid #e3e9f0;
+  border-left: 3px solid var(--accent);
+  padding: 12px 8px;
+  margin-top: 15px;
+  font-size: 12px;
+}
+.model-selector select {
+  width: 100%;
+  color: var(--accent);
+}
+.model-card {
+  border-top: 3px solid var(--accent);
+}
+.equation {
+  overflow-x: auto;
+  padding: 4px 0;
+}
+.sweep-row {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid #e8edf2;
+}
+.sweep-row label {
+  width: 90px;
+  margin: 0;
+  font-size: 11px;
+}
+.experiment-selection {
+  max-height: 360px;
+  overflow: auto;
+  margin-top: 15px;
+}
+.experiment-option {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 8px;
+  border-bottom: 1px solid #edf0f4;
+}
+.experiment-option input {
+  margin-top: 4px;
+}
+.paper-preview {
+  width: 100%;
+  max-width: 1100px;
+  border: 1px solid #eee;
+  margin: 18px 0;
+}
+.path-output {
+  overflow-wrap: anywhere;
+  font-family: monospace;
+}
+nav button.active {
+  background: color-mix(in srgb, var(--accent) 10%, white);
+}
+.badge {
+  border-color: var(--accent);
+  background: white;
+}
+.card {
+  border-left: 2px solid color-mix(in srgb, var(--accent) 25%, white);
 }

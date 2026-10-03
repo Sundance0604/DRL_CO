@@ -1,0 +1,1 @@
+{"base_spec":{"name":"BHH value decomposition identity","dataset":{"dataset_id":"bhh-demo","revision":"latest","split":"test"},"model":{"id":"bhh_steady"},"solver":{"backend":"cpu"},"evaluation":{"accounting_version":"bhh-cost-v1","information_set":"oracle"}},"sweeps":{"model.parameters.tau":[1,2,4],"model.parameters.resort_cost":[0,2]}}

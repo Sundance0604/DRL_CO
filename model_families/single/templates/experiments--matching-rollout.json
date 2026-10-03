@@ -1,0 +1,1 @@
+{"name":"Matching sampled rollout smoke","dataset":{"dataset_id":"matching-demo","revision":"latest","split":"test"},"model":{"id":"single_level_matching","parameters":{}},"controller":{"id":"rollout","parameters":{"samples":1,"expected_orders_per_step":2}},"value_function":{"id":"zero"}}

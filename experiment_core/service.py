@@ -43,12 +43,25 @@ def plan(config):
         if "base_spec" in config
         else BatchSpec(base_spec=RunSpec.model_validate(config))
     )
-    keys = list(batch.sweeps)
-    combinations = list(itertools.product(*batch.sweeps.values())) if keys else [()]
+    from .batching import expand_ranges
+    sweeps = dict(batch.sweeps)
+    for key, values in expand_ranges(batch.ranges).items():
+        if key in sweeps:
+            raise PlatformError("DUPLICATE_SWEEP", "range and explicit values overlap", key)
+        sweeps[key] = values
+    if any(not values for values in sweeps.values()):
+        raise PlatformError("EMPTY_SWEEP", "each sweep must contain values")
+    size = 1
+    for values in sweeps.values():
+        size *= len(values)
+        if size > 1000:
+            raise PlatformError("BATCH_SIZE", "parameter grid exceeds 1000 conditions")
+    keys = list(sweeps)
+    combinations = list(itertools.product(*sweeps.values())) if keys else [()]
     if (
         len(combinations)
         * len(batch.variants)
-        * len(batch.base_spec.execution.policy_seeds)
+        * max(len(batch.base_spec.execution.policy_seeds), len(batch.base_spec.execution.training_seeds or []))
         > 1000
     ):
         raise PlatformError("BATCH_SIZE", "batch exceeds 1000 runs")
@@ -56,74 +69,33 @@ def plan(config):
     for variant in batch.variants:
         for values in combinations:
             draft = merge(batch.base_spec.model_dump(), variant)
+            if any(k in variant for k in ("model", "controller", "value_function")) and "framework_id" not in variant:
+                draft["framework_id"] = None
             for key, value in zip(keys, values):
-                path = key.split(".")
-                node = draft
-                for part in path[:-1]:
-                    if part not in node or not isinstance(node[part], dict):
-                        raise PlatformError(
-                            "SWEEP_PATH", "unknown sweep path", "/" + "/".join(path)
-                        )
-                    node = node[part]
-                if path[-1] not in node:
-                    # Plugin fields may be omitted in base defaults; registered
-                    # schema still validates them after expansion.
-                    if "parameters" not in path:
-                        raise PlatformError("SWEEP_PATH", "unknown sweep field")
-                node[path[-1]] = value
+                from .batching import assign_parameter
+                assign_parameter(draft, key, value)
             spec = resolve(draft)
             data, scenarios = load_dataset(spec.dataset)
-            expected = "bhh" if spec.model.id.startswith("bhh") else spec.model.id
-            if data["family"] != expected:
-                raise PlatformError(
-                    "DATASET_MODEL_MISMATCH",
-                    "dataset physical family differs from selected model",
-                )
-            if spec.model.id.startswith("bhh") and any(
-                s["nodes"] != ["0", "1"] for s in scenarios
-            ):
-                raise PlatformError(
-                    "BHH_TWO_CITY", "BHH v1 requires exactly cities 0 and 1"
-                )
-            if (
-                spec.model.id == "legacy_dispatch"
-                and spec.evaluation.terminal_policy != "report_pending"
-            ):
-                raise PlatformError(
-                    "UNSUPPORTED_TERMINAL",
-                    "legacy adapter supports report_pending only",
-                )
-            if (
-                spec.value_function.id == "learned_hub_time"
-                or spec.controller.id == "candidate_sac"
-            ):
-                ref = (
-                    spec.value_function
-                    if spec.value_function.id == "learned_hub_time"
-                    else spec.controller
-                )
-                metadata = read_json(
-                    run_dir(ref.parameters["checkpoint_run"]) / "checkpoint.json"
-                )
-                if metadata["model_parameters"] != spec.model.parameters:
-                    raise PlatformError(
-                        "CHECKPOINT_PARAMETERS",
-                        "checkpoint physical parameter contract mismatch",
-                    )
-                if metadata["dataset_hash"] == spec.dataset.revision and {
-                    s["id"] for s in scenarios
-                } & set(metadata["train_scenario_ids"]):
-                    raise PlatformError(
-                        "TRAIN_TEST_LEAKAGE",
-                        "training scenarios are not held-out evaluation",
-                    )
-            for seed in spec.execution.policy_seeds:
+            from .families import get_family
+            f = get_family(spec.model.id)
+            f.validate_selection(spec, data, scenarios)
+            seeds = (spec.execution.training_seeds or spec.execution.policy_seeds) if f.is_training(spec) else spec.execution.policy_seeds
+            if len(specs)+len(seeds)>1000:
+                raise PlatformError("BATCH_SIZE","expanded variants and seeds exceed 1000 runs")
+            condition = digest({"family":f.FAMILY_ID, "model":spec.model.model_dump(), "controller":spec.controller.model_dump(),
+                                "value_function":spec.value_function.model_dump(), "evaluation":spec.evaluation.model_dump(),
+                                "solver":spec.solver.model_dump()})
+            for seed in seeds:
                 specs.append(
                     {
                         "spec": spec.model_dump(),
                         "policy_seed": seed,
                         "scenario_ids": [s["id"] for s in scenarios],
                         "dataset_hash": spec.dataset.revision,
+                        "condition_id": condition,
+                        "scenario_seeds": {s["id"]:s.get("seed") for s in scenarios},
+                        "training_seed": seed if f.is_training(spec) else None,
+                        "statistical_unit": "independent-scenario",
                     }
                 )
     return {
@@ -278,7 +250,7 @@ class Coordinator:
                     target.name,
                     manifest["batch_id"],
                     state["status"],
-                    manifest["policy_seed"],
+                    manifest.get("training_seed") if manifest.get("training_seed") is not None else manifest["policy_seed"],
                     json.dumps(spec),
                     json.dumps(submitted),
                 ),
@@ -364,21 +336,28 @@ class Coordinator:
                 atomic_json(target / "environment.json", environment())
                 from .plugins import descriptors
 
-                atomic_json(target / "plugins.lock.json", descriptors())
+                atomic_json(target / "plugins.lock.json", descriptors(resolved["family"]))
+                frozen, _ = load_dataset(RunSpec.model_validate(resolved).dataset)
+                atomic_json(target / "dataset.snapshot.json", frozen)
                 atomic_json(
                     target / "manifest.json",
                     {
                         "run_id": rid,
                         "batch_id": bid,
-                        "policy_seed": item["policy_seed"],
+                        "policy_seed": item["policy_seed"] if item["training_seed"] is None else None,
+                        "training_seed": item["training_seed"],
+                        "scenario_seeds": item["scenario_seeds"],
+                        "condition_id": item["condition_id"],
+                        "family": resolved["family"],
+                        "framework_id": resolved["framework_id"],
+                        "statistical_unit": item["statistical_unit"],
                         "dataset_hash": item["dataset_hash"],
                         "scenario_ids": item["scenario_ids"],
                         "code": code_record(target),
-                        "platform_version": "0.1.0",
-                        "limitations": [
-                            "rollout conditional first collection batch is approximate",
-                            "native macOS launch not tested",
-                        ],
+                        "platform_version": "0.2.0",
+                        "limitations": (["rollout conditional first collection batch is approximate"]
+                                        if resolved["family"] == "single" and resolved["controller"]["id"] == "rollout" else [])
+                                        + ["native macOS launch not tested"],
                     },
                 )
                 atomic_json(target / "state.json", {"status": "QUEUED"})
@@ -429,6 +408,8 @@ class Coordinator:
                 "events": events(rid),
             }
             metrics = run_dir(rid) / "metrics.json"
+            manifest = read_json(run_dir(rid) / "manifest.json")
+            result.update({key:manifest.get(key) for key in ("policy_seed","training_seed","scenario_seeds","condition_id","family","framework_id")})
             if metrics.exists():
                 result["metrics"] = read_json(metrics)
             result["artifacts"] = [
@@ -582,6 +563,8 @@ class Coordinator:
                 used += threads
 
     def close(self):
+        if self.lock.closed:
+            return
         with self.guard:
             self.stopping = True
             for rid in self.active:

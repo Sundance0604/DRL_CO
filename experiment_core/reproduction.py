@@ -21,7 +21,7 @@ def comparison(run_ids, metric="operating_profit"):
     a, b = specs
     from .metrics import DEFINITIONS
 
-    definition = next((d for d in DEFINITIONS if d["key"] == metric), None)
+    definition = next((d for d in DEFINITIONS if d["key"] == metric and a.model.id in d["compatible_model_families"]), None)
     if (
         definition is None
         or a.model.id not in definition["compatible_model_families"]
@@ -38,7 +38,8 @@ def comparison(run_ids, metric="operating_profit"):
         raise PlatformError(
             "COMPARISON_CODE_MISMATCH", "compare runs from the same source snapshot"
         )
-    if a.model.id in ("bhh_steady", "bhh_spatial"):
+    from .families import get_family
+    if not get_family(a.model.id).supports_samples(a):
         raise PlatformError(
             "STATISTICS_NOT_APPLICABLE",
             "analytical/calibration outputs are parameter studies, not independent policy scenario trials",
@@ -129,6 +130,7 @@ def export_bundle(rid):
         "checkpoint.json",
         "weights.json",
         "weights.pt",
+        "metrics.json", "trace.json", "metric-definitions.json", "charts.json", "events.jsonl",
     ):
         path = target / name
         if path.exists():
@@ -139,13 +141,8 @@ def export_bundle(rid):
     from .plugins import schemas
 
     files["schemas.json"] = canonical(schemas())
-    ref = (
-        spec.value_function
-        if spec.value_function.id == "learned_hub_time"
-        else spec.controller
-        if spec.controller.id == "candidate_sac"
-        else None
-    )
+    from .families import get_family
+    ref = get_family(spec.model.id).checkpoint_reference(spec)
     if ref:
         source = run_dir(ref.parameters["checkpoint_run"])
         for name in ("checkpoint.json", "weights.json", "weights.pt"):

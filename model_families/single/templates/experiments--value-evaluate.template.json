@@ -1,0 +1,1 @@
+{"name":"Held-out learned hub-time value","dataset":{"dataset_id":"matching-demo","revision":"latest","split":"test"},"model":{"id":"single_level_matching"},"value_function":{"id":"learned_hub_time","parameters":{"checkpoint_run":"REPLACE_WITH_VALUE_TRAIN_RUN_ID"}}}

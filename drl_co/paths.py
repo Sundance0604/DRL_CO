@@ -1,6 +1,8 @@
-"""Project-wide paths that do not depend on the current working directory."""
-
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_SCENARIO = PROJECT_ROOT / "data" / "sample_data.pkl"
+"""Compatibility import; implementation belongs to the legacy family."""
+import importlib as _importlib
+import sys as _sys
+if __name__ == "__main__":
+    from runpy import run_module
+    run_module("model_families.legacy.engine.paths", run_name="__main__")
+else:
+    _sys.modules[__name__] = _importlib.import_module("model_families.legacy.engine.paths")

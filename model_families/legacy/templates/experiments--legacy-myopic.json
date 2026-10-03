@@ -1,0 +1,1 @@
+{"name":"Legacy supply smoke","dataset":{"dataset_id":"legacy-demo","revision":"latest","split":"test"},"model":{"id":"legacy_dispatch"},"controller":{"id":"myopic"},"value_function":{"id":"zero"}}

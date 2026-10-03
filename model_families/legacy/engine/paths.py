@@ -1,0 +1,6 @@
+"""Project-wide paths that do not depend on the current working directory."""
+
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_SCENARIO = PROJECT_ROOT / "data" / "sample_data.pkl"
