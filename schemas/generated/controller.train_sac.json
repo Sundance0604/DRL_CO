@@ -1,0 +1,1 @@
+{"additionalProperties":false,"properties":{"epochs":{"default":30,"maximum":1000,"minimum":1,"title":"Epochs","type":"integer"},"learning_rate":{"default":0.0003,"exclusiveMinimum":0,"title":"Learning Rate","type":"number"}},"title":"SacTrainParameters","type":"object"}

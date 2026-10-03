@@ -15,3 +15,13 @@ output_files/
 *.ilp
 *.npz
 vehicle_records.csv
+workspace/
+.venv/
+.bootstrap/
+node_modules/
+frontend/dist/
+.uv-cache/
+*.partial
+*.tsbuildinfo
+.env
+.env.*

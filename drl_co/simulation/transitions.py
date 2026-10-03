@@ -7,7 +7,7 @@ from drl_co.domain.vehicle import *
 from drl_co.simulation.tools import *
 from drl_co.optimization.lower_layer import *
 
-def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict):
+def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict, accept_incumbent=False):
     i = 0
     real_id = temp_Lower_Layer.get_real_id()
     
@@ -18,7 +18,7 @@ def update_var(temp_Lower_Layer:Lower_Layer, Vehicles:Dict,orders_unmatched:Dict
         order.id = real_id[j]
         j+= 1
     for v in temp_Lower_Layer.model.getVars():
-        if temp_Lower_Layer.model.status != GRB.OPTIMAL:
+        if temp_Lower_Layer.model.status != GRB.OPTIMAL and not (accept_incumbent and temp_Lower_Layer.model.SolCount > 0):
             break
         # 按下标获取车辆
         if i < 4 * num_vehicle:

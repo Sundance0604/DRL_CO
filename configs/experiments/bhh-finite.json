@@ -1,0 +1,1 @@
+{"name":"BHH finite oracle smoke","dataset":{"dataset_id":"bhh-demo","revision":"latest","split":"test"},"model":{"id":"bhh_finite","parameters":{"hv_fleet":[2,2],"av_fleet":[1,1]}},"evaluation":{"accounting_version":"bhh-cost-v1","information_set":"oracle"}}

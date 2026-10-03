@@ -23,26 +23,31 @@ from .mt_prototype import Net, run, load_case, SPEED, Q, C_LOADED, C_WAIT, PHI, 
 from .demand import make_order, sample_batches as sample_stream, lead_pmf, SLACK
 
 
-def never_served_loss(o, net, T):
+def never_served_loss(o, net, T, expiry_cost=PHI):
     """L_o: waiting penalties plus cancellation penalty of an order that is never assigned."""
     tau = net.tau[o.departure, o.destination]
     g = getattr(o, "book_time", o.start_time)
     tbar = max(g, math.floor(o.end_time - tau))                      # first period in which o expires
-    return o.penalty * (min(tbar, T - 1) - g + 1) + (PHI if tbar <= T - 1 else 0.0)
+    return o.penalty * (min(tbar, T - 1) - g + 1) + (expiry_cost if tbar <= T - 1 else 0.0)
 
 
-def bound(net, hubs, items, T, c_empty, relax, time_limit=60, barrier=False, penalties=None):
+def bound(net, hubs, items, T, c_empty, relax, time_limit=60, barrier=False, penalties=None, parameters=None, solver_parameters=None, solve_info=None):
     """items: list of (order-like, multiplicity). relax=False gives (H) with multiplicity 1;
     relax=True gives the LP: the relaxation of (H), or (F) when multiplicities are expected counts.
     penalties: {("arc", (u, v), t): c} and {("wait", u, t): c} are subtracted from the objective per unit of
     flow on the movement arc entered in period t and per vehicle waiting at u during period t (information
     relaxation with a penalty)."""
     m = gp.Model(); m.Params.OutputFlag = 0; m.Params.TimeLimit = time_limit; m.Params.MIPGap = 1e-4
+    parameters=parameters or {}
+    Q,C_LOADED,C_WAIT,DMAX = [parameters.get(k,d) for k,d in (("capacity",7),("loaded_cost",10),("waiting_cost",0),("max_delay",3))]
+    m.Params.Threads=1
+    for key,value in (solver_parameters or {}).items():
+        m.setParam({"time_limit_seconds":"TimeLimit","threads":"Threads","mip_gap":"MIPGap","seed":"Seed"}[key],value)
     if barrier:                     # large LP: interior point without crossover
         m.Params.Method = 2; m.Params.Crossover = 0
     arcs = [(u, v) for u in net.H for v in net.H.neighbors(u)]
     tmax = max(max(net.tau.values()), 1)
-    Tbar = max(T + DMAX + 3 * tmax, math.ceil(max(o.end_time for o, _ in items)))
+    Tbar = max(T + DMAX + 3 * tmax, math.ceil(max([T]+[o.end_time for o, _ in items])))
     vt = GRB.CONTINUOUS if relax else GRB.INTEGER
     xl = {(a, t): m.addVar(vtype=vt) for a in arcs for t in range(Tbar) if t + net.lt(*a) <= Tbar}
     xe = {(a, t): m.addVar(vtype=vt) for a in arcs for t in range(Tbar) if t + net.lt(*a) <= Tbar}
@@ -50,7 +55,7 @@ def bound(net, hubs, items, T, c_empty, relax, time_limit=60, barrier=False, pen
     cap, obj, const = {}, [], 0.0
     for o, mult in items:
         tau = net.tau[o.departure, o.destination]
-        L = never_served_loss(o, net, T)
+        L = never_served_loss(o, net, T, parameters.get("expiry_cost",PHI))
         const -= L * mult
         path = net.path[o.departure, o.destination]
         # boarding window W_o: ready time, deadline, and assignment before the horizon ends
@@ -88,11 +93,16 @@ def bound(net, hubs, items, T, c_empty, relax, time_limit=60, barrier=False, pen
                + gp.quicksum(c * eta[u, t] for (kind, u, t), c in penalties.items() if kind == "wait" and (u, t) in eta))
     m.setObjective(gp.quicksum(obj) + const - cost - wait - pen, GRB.MAXIMIZE)
     m.optimize()
-    assert m.SolCount > 0 or relax
+    if solve_info is not None:
+        solve_info.update(status="OPTIMAL" if m.Status==GRB.OPTIMAL else "FEASIBLE_LIMIT" if m.SolCount else "NO_SOLUTION_LIMIT",runtime=m.Runtime)
     if relax:
-        assert m.Status == GRB.OPTIMAL
-        return m.ObjVal, m.ObjVal
-    return m.ObjVal, m.ObjBound               # best solution found, valid upper bound
+        if m.Status != GRB.OPTIMAL:
+            m.dispose();raise RuntimeError("LP bound requires optimal solution")
+        result=m.ObjVal,m.ObjVal
+    else:
+        result=(m.ObjVal if m.SolCount else None), (m.ObjBound if math.isfinite(m.ObjBound) else None)
+    m.dispose()
+    return result
 
 
 def expected_types(net, T, ops):

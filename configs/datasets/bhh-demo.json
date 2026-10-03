@@ -1,0 +1,1 @@
+{"dataset_id":"bhh-demo","family":"bhh","seeds":[10001,10002,10003],"splits":["train","validation","test"],"horizon":4,"orders_per_step":2}

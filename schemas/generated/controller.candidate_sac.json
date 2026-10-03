@@ -1,0 +1,1 @@
+{"additionalProperties":false,"properties":{"checkpoint_run":{"pattern":"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$","title":"Checkpoint Run","type":"string"},"stochastic":{"default":false,"title":"Stochastic","type":"boolean"}},"required":["checkpoint_run"],"title":"SacParameters","type":"object"}

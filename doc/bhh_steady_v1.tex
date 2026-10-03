@@ -1,0 +1,359 @@
+\documentclass[10pt, reqno]{amsart}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{xcolor,hyperref}
+\hypersetup{colorlinks=true, linkcolor=cyan, urlcolor=blue}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}[proposition]{Lemma}
+\newtheorem{corollary}[proposition]{Corollary}
+\theoremstyle{definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{remark}{Remark}
+
+\begin{document}
+\title{Batching and synchronization in three-leg intercity freight: a steady-state model}
+\author{Working draft, 2026-09-30}
+\maketitle
+
+% Status of each claim (see also steady_state_check.py):
+%   Lemma 1, Propositions 2, 3, 5-10 and Corollary 4: proved below; all but the corollary are also
+%   checked numerically.
+%   Remark on the critical distance with zoned tours (monotonicity of D): numerical observation only.
+%   Remark on the value of time and the critical distance: numerical observation only.
+%
+% Scope, decided 2026-09-30. This paper is about FREIGHT and about OPERATIONS: demand is given, and
+% the question is how each leg should be batched and how the legs are synchronized. The companion
+% paper (Intercity_Ride_pooling.pdf: passengers, elastic demand, matching frictions, pricing and
+% fleet deployment) owns the market-level question of when the three-stage structure beats the
+% point-to-point mode. Here the comparison with direct shipping is a benchmark (Section 5) and
+% must not become the headline in the title, abstract, or contribution list.
+%
+% Base model, decided 2026-09-30: the vehicles of a wave leave together and split the city into
+% zones. Vehicle-by-vehicle dispatch with whole-city tours (Section 6) is kept as a contrast only.
+
+\section{Positioning}
+
+We study an intercity freight system with three legs: collection by human-driven vehicles (HVs) in the origin city, line-haul by automated vehicles (AVs) on the highway, and distribution by HVs in the destination city, with a transshipment hub at each highway entrance. The question this model is built to answer is: \emph{how large should the batch of each leg be, and how do the three batching decisions interact?} The Beardwood--Halton--Hammersley (BHH) approximation is the engine of the analysis: it makes the routing time of a set of stops a concave function of their number, so that every leg faces a trade-off between consolidation (fewer vehicle-hours per shipment) and delay. Demand is taken as given; pricing and the response of demand to service quality are outside the scope. The model delivers two main results and one benchmark.
+\begin{enumerate}
+\item \textbf{Consolidation delay is paid once.} In a chain of three batching stages, the delay caused by waiting for batches to fill is governed by the largest batch only (Lemma~\ref{lem:delay}).
+\item \textbf{One wave, two loads.} The three legs share a common wave. The wave solves a one-dimensional convex problem and is bounded below by a square-root law for the line-haul and by a two-thirds-power law for local routing, so it is pulled up by the cities as well as by the corridor. Each vehicle load obeys a square-root law in the stem time between the hub and the zone, and distribution loads are $\sqrt2$ times collection loads (Propositions~\ref{prop:wave}--\ref{prop:optwave}; fleet sizes follow in Corollary~\ref{cor:fleet}).
+\item \textbf{Benchmark.} Direct shipping is the three-leg system with equal loads at both ends, a human-driven highway leg, and one end left unzoned. The value of transshipment therefore splits into a line-haul value, a re-sorting value, and a decoupling value, weighed against the transfer penalty; it exceeds the penalty beyond an explicit distance (Proposition~\ref{prop:bench}).
+\end{enumerate}
+Section~\ref{sec:wholecity} contrasts these results with vehicle-by-vehicle dispatch, under which the three legs decouple and each obeys its own square-root law. The time-expanded mixed-integer program in \texttt{main\_v2.tex} is the finite-horizon counterpart of this model (its mandatory-transshipment scheme is the three-leg system, and its direct-shipping option is the direct system) and is meant to be used as its numerical validation.
+
+\section{Setting}
+
+Two cities are connected by a highway; each city has a hub at the highway entrance. A shipment is released at a point in one city and must be delivered to a point in the other city; it requires one pickup stop and one delivery stop.
+
+\begin{assumption}[Demand]\label{as:demand}
+Shipments in each direction are released at a constant rate $\Lambda$ (shipments per unit time). Origins and destinations are independent and uniformly distributed over the two cities, which are identical.
+\end{assumption}
+
+\begin{assumption}[Waves and zoned tours]\label{as:bhh}
+Local tours are run in waves. A wave is a set of $W$ consecutive shipments that are handled together on a leg; its vehicles leave the hub together, the city is split into $z=W/n$ zones of equal area, and each vehicle visits the $n$ stops of its zone. A tour with $n$ stops in a wave of $W$ shipments takes
+\begin{equation}\label{eq:zonetour}
+2\rho+s(W)\,n,\qquad s(W):=a+\frac{b}{\sqrt W},
+\end{equation}
+where $a\ge0$ is the handling time per stop, $b>0$ is proportional to the square root of the city area, and $\rho>0$ is the average travel time between the hub and a zone. The zones of a wave are balanced, so its vehicles return to the hub together.
+\end{assumption}
+
+Expression \eqref{eq:zonetour} rests on the partitioning property of the BHH limit: a single tour through $W$ uniformly distributed stops takes $b\sqrt W$ of travel, and the tours of the zones add up to the same total, so a vehicle with $n$ of the $W$ stops travels $b\,n/\sqrt W$ inside its zone. The time per stop $s(W)$ thus falls with the size of the wave and not with the load of the vehicle. We write $f(W):=aW+b\sqrt W$ for the total in-zone time of a wave.
+% To cite here: Karp (1977, Mathematics of Operations Research) on partitioning algorithms for the TSP,
+% and Daganzo (1984, Transportation Science) on the distance to visit N points with C stops per vehicle.
+
+\begin{assumption}[Vehicles]\label{as:veh}
+An HV carries at most $M$ shipments and costs $c$ per unit time in service. An AV carries at most $\hat M\ge M$ shipments, costs $\hat c\le c$ per unit time, and is used on the highway only. The highway takes $\tau$ in either direction. Fleets are sized to the offered load, and queueing for vehicles is ignored.
+\end{assumption}
+
+\begin{assumption}[Time and transfers]\label{as:time}
+Each shipment incurs a cost $\omega$ per unit of lead time, measured from release to delivery. Each transshipment at a hub takes $\theta$ and costs $h$ per shipment in handling. We write $\Theta := 2(\omega\theta+h)$ for the transfer penalty of the two transfers.
+\end{assumption}
+
+Two systems are compared.
+\begin{itemize}
+\item \emph{Three-leg system.} The collection vehicles of a wave of $W_1$ shipments leave the origin hub when the last shipment of the wave has been released, and each collects $n_1$ shipments. The line-haul leaves the origin hub each time $m$ shipments are waiting there; a batch larger than $\hat M$ is carried by several AVs that leave together. At the destination hub, a distribution wave of $W_2$ shipments leaves as soon as it is complete, and each vehicle delivers $n_2$ shipments. A policy is $(W_1,m,W_2;n_1,n_2)$ with $n_i\le\min\{M,W_i\}$.
+\item \emph{Direct system.} A wave of $W$ shipments is carried by $W/n$ HVs with $n\le\min\{M,W\}$. Each vehicle collects the $n$ shipments of its zone in the origin city, drives the highway, and delivers them. Its shipments are scattered over the whole destination city, so the distribution tour cannot be zoned and takes $f(n)=an+b\sqrt n$. Because demand is balanced, the vehicle then serves the opposite direction in the same way, so no vehicle travels empty.
+\end{itemize}
+A direct vehicle can be zoned at one end only. We leave the distribution end unzoned: the mirrored arrangement, with a whole-city collection tour and a zoned distribution tour, has the same vehicle cost and a longer lead time whenever zoning saves time. Batch sizes are treated as continuous variables.
+
+\section{Consolidation delay}
+
+\begin{lemma}[Consolidation delay is paid once]\label{lem:delay}
+Consider three stages in series. Stage $k$ forwards shipments in batches of size $q_k$: it releases a batch as soon as $q_k$ shipments are waiting, and every batch of a stage takes the same time to reach the next stage. Let $\bar q:=\max\{q_1,q_2,q_3\}$. If each $q_k$ divides $\bar q$, the average time that a shipment spends waiting for batches to fill is $(\bar q-1)/(2\Lambda)$.
+\end{lemma}
+
+\begin{proof}
+Number the shipments in order of release and call shipment $j\bar q$ ($j=1,2,\dots$) a closing shipment. Batches of a given stage are forwarded in order and take the same time, so shipments stay in order of release. When a closing shipment is released, the number of shipments released so far is a multiple of every batch size; hence, at each stage, the batch that contains the closing shipment is complete the moment the closing shipment joins it, and the closing shipment never waits. At the stage with the largest batch, the shipments $(j-1)\bar q+1,\dots,j\bar q$ form one batch, which leaves when the closing shipment arrives. Downstream of that stage the $\bar q$ shipments arrive together and are split into full batches at once. Every shipment of the block therefore finishes together with its closing shipment, and its waiting time equals the time between its own release and the release of the closing shipment. For the $i$-th shipment of the block this is $(\bar q-i)/\Lambda$, and the average over $i=1,\dots,\bar q$ is $(\bar q-1)/(2\Lambda)$.
+\end{proof}
+
+In the continuous model we use $\bar q/(2\Lambda)$. When the batch sizes are not nested the delay is larger, so the expression is a lower bound in general and the optimal continuous batch sizes should be rounded to nested values. In the three-leg system the stages are the collection wave, the line-haul batch, and the distribution wave, so $\bar q=\max\{W_1,m,W_2\}$.
+
+\section{The three-leg system}
+
+The generalized cost per shipment is the vehicle cost per shipment plus $\omega$ times the average lead time:
+\begin{multline}\label{eq:GZfull}
+G_Z(W_1,m,W_2;n_1,n_2)=c\Big[s(W_1)+\frac{2\rho}{n_1}+s(W_2)+\frac{2\rho}{n_2}\Big]+\frac{\hat c\,\tau}{\min\{m,\hat M\}}\\
++\omega\Big[\frac{\max\{W_1,m,W_2\}}{2\Lambda}+2\rho+s(W_1)\,n_1+\tau+\rho+\frac{s(W_2)\,n_2}{2}\Big]+\Theta .
+\end{multline}
+A collection vehicle is in service for $2\rho+s(W_1)n_1$ and carries $n_1$ shipments, which gives the first two cost terms; every collected shipment stays on the vehicle until the tour returns to the hub. A distributed shipment is delivered, on average, halfway through the in-zone part of the tour, after the stem. An AV trip of duration $\tau$ carries $\min\{m,\hat M\}$ shipments and returns with the batch of the opposite direction.
+
+\begin{proposition}[One wave, two loads]\label{prop:wave}
+There is an optimal three-leg policy with a common wave, $W_1=m=W_2=:W$. For a given wave $W$, the optimal vehicle loads are
+\begin{equation}\label{eq:zoneloads}
+n_1(W)=\min\Big\{M,\sqrt{\frac{2c\rho}{\omega\,s(W)}}\Big\},\qquad
+n_2(W)=\min\Big\{M,\sqrt{\frac{4c\rho}{\omega\,s(W)}}\Big\},
+\end{equation}
+provided that these do not exceed $W$ (there are at least two zones); both increase in $W$. When neither load is capped by $M$, the cost of a wave $W$ is
+\begin{equation}\label{eq:GZ}
+G_Z(W)=2c\,s(W)+2\big(1+\sqrt2\big)\sqrt{c\rho\,\omega\,s(W)}+\frac{\hat c\,\tau}{\min\{W,\hat M\}}+\frac{\omega W}{2\Lambda}+\omega(\tau+3\rho)+\Theta .
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Let $\bar W:=\max\{W_1,m,W_2\}$. Raising $W_1$ and $W_2$ to $\bar W$ lowers $s(W_1)$ and $s(W_2)$, and raising $m$ to $\bar W$ lowers the line-haul cost; none of these changes the consolidation term. For a given $W$, the terms of \eqref{eq:GZfull} that depend on $n_1$ are $2c\rho/n_1+\omega s(W)n_1$, and those that depend on $n_2$ are $2c\rho/n_2+\omega s(W)n_2/2$; both are convex, which gives \eqref{eq:zoneloads}, and substituting gives \eqref{eq:GZ}. The loads increase in $W$ because $s$ decreases.
+\end{proof}
+
+The load of a vehicle trades the stem, which is paid once per tour, against the time that the shipments on board spend on the tour. Distribution loads are larger than collection loads because a collected shipment stays on the vehicle until the tour ends, whereas a distributed shipment leaves it halfway on average.
+
+\begin{proposition}[The optimal wave]\label{prop:optwave}
+$G_Z$ is convex and has a unique minimizer $W^*$. If $W^*<\hat M$, then
+\begin{equation}\label{eq:wavebounds}
+W^*\ \ge\ \max\Big\{\sqrt{\frac{2\Lambda\hat c\,\tau}{\omega}},\ \Big(\frac{2\Lambda c\,b}{\omega}\Big)^{2/3}\Big\},
+\end{equation}
+and $W^*$ increases in $\Lambda$, $\tau$, $\hat c$, $c$, $b$, and $\rho$. If the minimizer exceeds $\hat M$, the AVs run full and $W^*$ does not depend on $\tau$ or $\hat c$.
+\end{proposition}
+
+\begin{proof}
+$s$ is convex and decreasing. A direct computation gives
+\[
+\frac{d^2}{dW^2}\sqrt{s(W)}=\frac{b}{16}\,W^{-3}s(W)^{-3/2}\big(6a\sqrt W+5b\big)>0 ,
+\]
+so $\sqrt{s}$ is convex. The function $1/\min\{W,\hat M\}$ is convex, and the consolidation term is linear. Hence $G_Z$ is convex; it is strictly convex and unbounded at both ends, so the minimizer is unique. On $(0,\hat M)$, write $G_Z$ as the sum of $\hat c\tau/W+\omega W/(2\Lambda)$, which is minimized at $\sqrt{2\Lambda\hat c\tau/\omega}$ and decreasing to the left of that point, and a decreasing function; $G_Z$ is then decreasing to the left of that point, so a minimizer in $(0,\hat M)$ lies to its right. The same argument with $2cb/\sqrt W+\omega W/(2\Lambda)$, which is minimized at $(2\Lambda cb/\omega)^{2/3}$, gives the second bound. Finally, the derivative of $G_Z$ with respect to $W$ decreases pointwise in each of $\Lambda$, $\tau$, $\hat c$, $c$, $b$, and $\rho$, so the minimizer of the convex function moves to the right. Beyond $\hat M$ the line-haul term is constant.
+\end{proof}
+
+\begin{remark}[Which of the two bounds drives the wave]\label{rem:drivers}
+The wave is driven by the corridor when $\sqrt{2\Lambda\hat c\tau/\omega}$ is much larger than $(2\Lambda cb/\omega)^{2/3}$, that is, when the highway is long relative to the size of the cities, and by the cities otherwise. In the second case the line-haul batch is larger than the corridor alone would justify, and it moves little with $\tau$.
+\end{remark}
+
+\begin{corollary}[Fleet sizes]\label{cor:fleet}
+A three-leg policy $(W;n_1,n_2)$ keeps $\Lambda\,[2s(W)+2\rho/n_1+2\rho/n_2]$ HVs busy in each city on average and $2\Lambda\tau/\min\{W,\hat M\}$ AVs on the highway; a wave uses $W/n_1$ collection vehicles and $W/n_2$ distribution vehicles at a time. A direct policy $(W;n)$ keeps $2\Lambda\,[2\rho+s(W)n+\tau+f(n)]/n$ HVs busy.
+\end{corollary}
+
+\section{Benchmark: direct shipping}\label{sec:bench}
+
+The direct system is the conventional point-to-point operation. It is used here as a benchmark that isolates what the three-leg structure adds to a given operation; it is not the object of the paper. Its generalized cost per shipment is
+\begin{equation}\label{eq:GDZ}
+G_D(W;n)=c\Big[s(W)+a+\frac{b}{\sqrt n}+\frac{2\rho+\tau}{n}\Big]+\omega\Big[\frac{W}{2\Lambda}+2\rho+s(W)\,n+\tau+\frac{f(n)}{2}\Big].
+\end{equation}
+We write $G_Z^*$ and $G_D^*$ for the minimal costs of the two systems, and
+\begin{equation}\label{eq:R}
+R(W,n):=f(n)-s(W)\,n-2\rho=b\sqrt n\Big(1-\sqrt{\frac nW}\Big)-2\rho
+\end{equation}
+for the time that zoning saves on a tour of $n$ stops in a wave of $W$ shipments.
+
+\begin{proposition}[Direct shipping as a constrained three-leg system]\label{prop:bench}
+For every $W$ and $n\le\min\{M,W\}$,
+\begin{equation}\label{eq:identityZ}
+G_D(W;n)=G_Z(W;n,n)-\Theta+\Big(\frac cn-\frac{\hat c}{\min\{W,\hat M\}}\Big)\tau+\Big(\frac cn+\frac\omega2\Big)R(W,n).
+\end{equation}
+Consequently, with $(W_D;n_D)$ an optimal direct policy,
+\begin{equation}\label{eq:mimicZ}
+G_Z^*\le G_D^*+\Theta-\Big(\frac c{n_D}-\frac{\hat c}{\min\{W_D,\hat M\}}\Big)\tau-\Big(\frac c{n_D}+\frac\omega2\Big)R(W_D,n_D),
+\end{equation}
+and the three-leg system is optimal whenever
+\begin{equation}\label{eq:taubound}
+\tau\ \ge\ \frac{M(\Theta+\omega\rho)+2c\rho}{c-\hat c}.
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Subtracting \eqref{eq:GZfull} at $W_1=m=W_2=W$ and $n_1=n_2=n$ from \eqref{eq:GDZ}, the vehicle-cost terms differ by $c\,[a+b/\sqrt n-s(W)-2\rho/n]=(c/n)R(W,n)$ and by the highway term, and the lead-time terms differ by $\omega[f(n)/2-\rho-s(W)n/2]=(\omega/2)R(W,n)$, which gives \eqref{eq:identityZ}. The policy $(W_D;n_D,n_D)$ is feasible for the three-leg system, which gives \eqref{eq:mimicZ}. Since $n_D\le\min\{W_D,M\}$ and $M\le\hat M$, the highway coefficient is at least $(c-\hat c)/n_D$; since $R\ge-2\rho$, \eqref{eq:mimicZ} gives $G_D^*-G_Z^*\ge[(c-\hat c)\tau-2c\rho-n_D(\omega\rho+\Theta)]/n_D$, which is nonnegative under \eqref{eq:taubound} because $n_D\le M$.
+\end{proof}
+
+The identity splits the value of the three-leg structure into three parts, against which the transfer penalty $\Theta$ is weighed.
+\begin{itemize}
+\item \emph{Line-haul value}, $(c/n-\hat c/\min\{W,\hat M\})\tau$. The highway leg is run by a cheaper vehicle, and it carries the whole wave rather than the load of one HV.
+\item \emph{Re-sorting value}, $(c/n+\omega/2)R(W,n)$. The hubs re-sort the shipments, so both ends are zoned; a direct vehicle can be zoned at one end only. This part is negative when the stems are long relative to the routing time that zoning saves.
+\item \emph{Decoupling value}, the slack in \eqref{eq:mimicZ}. The three-leg system chooses the wave and the two loads freely, whereas direct shipping forces the same load at both ends.
+\end{itemize}
+
+\begin{remark}[Critical distance]\label{rem:critZ}
+Let $D(\tau):=G_D^*(\tau)-G_Z^*(\tau)+\Theta$ be the value of the three-leg structure before the transfer penalty. In all the instances we computed, $D$ is nondecreasing in $\tau$, so there is a critical distance $\bar\tau$, no larger than the right-hand side of \eqref{eq:taubound}, beyond which the three-leg system is optimal. We have no proof of the monotonicity with zoned tours; Proposition~\ref{prop:critical} proves it for whole-city tours. Unlike in that case, $D(0)$ can be negative here, which happens when the re-sorting value is negative.
+\end{remark}
+
+\section{Contrast: vehicle-by-vehicle dispatch}\label{sec:wholecity}
+
+Suppose instead that vehicles are dispatched one by one: an HV leaves the origin hub each time $n_1$ shipments have been released, an AV leaves each time $m$ shipments are waiting at the hub, and an HV leaves the destination hub each time $n_2$ shipments are waiting. The stops of a tour are then the next $n$ shipments in order of release, which are spread over the whole city, so a tour takes $f(n)=an+b\sqrt n$ and there is no zone to travel to. A policy is a triple $(n_1,m,n_2)$ with $n_1,n_2\le M$ and $m\le\hat M$; a direct vehicle collects $n\le M$ shipments, drives the highway, and delivers them. By Lemma~\ref{lem:delay}, the generalized costs are
+\begin{equation}\label{eq:GT}
+G_T(n_1,m,n_2)=c\,\frac{f(n_1)}{n_1}+\frac{\hat c\,\tau}{m}+c\,\frac{f(n_2)}{n_2}
++\omega\Big[\frac{\max\{n_1,m,n_2\}}{2\Lambda}+f(n_1)+\tau+\frac{f(n_2)}{2}\Big]+\Theta ,
+\end{equation}
+\begin{equation}\label{eq:GD}
+G_D^{\mathrm{wc}}(n)=c\,\frac{2f(n)+\tau}{n}+\omega\Big[\frac{n}{2\Lambda}+f(n)+\tau+\frac{f(n)}{2}\Big],
+\end{equation}
+with minima $G_T^*$ and $G_D^{\mathrm{wc}*}$. It is convenient to separate the terms that depend on the local batch sizes:
+\begin{equation}\label{eq:ell}
+\ell_1(n):=\frac{cb}{\sqrt n}+\omega\big(an+b\sqrt n\big),\qquad
+\ell_2(n):=\frac{cb}{\sqrt n}+\frac{\omega}{2}\big(an+b\sqrt n\big),
+\end{equation}
+so that $G_T=2ac+\ell_1(n_1)+\ell_2(n_2)+\hat c\tau/m+\omega\max\{n_1,m,n_2\}/(2\Lambda)+\omega\tau+\Theta$.
+
+\begin{proposition}[The line-haul batch is the largest]\label{prop:structure}
+There is an optimal policy with $m\ge\max\{n_1,n_2\}$.
+\end{proposition}
+
+\begin{proof}
+If $m<\max\{n_1,n_2\}\le M\le\hat M$, raising $m$ to $\max\{n_1,n_2\}$ is feasible, leaves the consolidation term unchanged, and lowers $\hat c\tau/m$.
+\end{proof}
+
+Hence
+\begin{equation}\label{eq:reduced}
+G_T^*=2ac+\omega\tau+\Theta+\min_{m\le\hat M}\Big\{\frac{\hat c\,\tau}{m}+\frac{\omega m}{2\Lambda}+\min_{n_1\le\min\{m,M\}}\ell_1(n_1)+\min_{n_2\le\min\{m,M\}}\ell_2(n_2)\Big\}.
+\end{equation}
+
+\begin{proposition}[Local batch sizes]\label{prop:local}
+The functions $\ell_1$ and $\ell_2$ are quasi-convex with unique minimizers $n_1^\circ$ and $n_2^\circ$, where $u_i=\sqrt{n_i^\circ}$ is the unique positive root of
+\begin{equation}\label{eq:cubic}
+2\omega a\,u_1^3+\omega b\,u_1^2=cb,\qquad 2\omega a\,u_2^3+\omega b\,u_2^2=2cb .
+\end{equation}
+Moreover: (i) $n_1^\circ\le c/\omega$ and $n_2^\circ\le 2c/\omega$, with equality if and only if $a=0$; (ii) $n_1^\circ<n_2^\circ$; (iii) $n_i^\circ$ increases in $c/\omega$ and in $b$, decreases in $a$, and does not depend on $\Lambda$, $\tau$, $\hat c$, or $\hat M$.
+\end{proposition}
+
+\begin{proof}
+Differentiating, $2n^{3/2}\ell_1'(n)=2\omega a\,n^{3/2}+\omega b\,n-cb$ and $4n^{3/2}\ell_2'(n)=2\omega a\,n^{3/2}+\omega b\,n-2cb$. Both right-hand sides are strictly increasing in $n$, negative at $n=0$, and unbounded, so each derivative changes sign exactly once, from negative to positive. Dropping the nonnegative cubic term in \eqref{eq:cubic} gives (i). The two equations have the same left-hand side and the second has the larger right-hand side, which gives (ii). Writing the first equation as $b=2\omega a\,u^3/(c-\omega u^2)$, whose right-hand side increases in $u$ on $(0,\sqrt{c/\omega})$, gives the monotonicity in $b$; the other comparative statics follow from the monotonicity of the left-hand side of \eqref{eq:cubic} in $u$, $a$, and $\omega$.
+\end{proof}
+
+\begin{proposition}[Square-root law]\label{prop:sqrt}
+Let $m^\circ:=\sqrt{2\Lambda\hat c\,\tau/\omega}$. If $n_2^\circ\le\min\{m^\circ,M\}$ and $m^\circ\le\hat M$, the optimal policy is $(n_1^\circ,m^\circ,n_2^\circ)$ and
+\begin{equation}\label{eq:GTstar}
+G_T^*=2ac+\ell_1(n_1^\circ)+\ell_2(n_2^\circ)+\sqrt{\frac{2\omega\hat c\,\tau}{\Lambda}}+\omega\tau+\Theta .
+\end{equation}
+If, in addition, $a=0$, then $n_1^\circ=c/\omega$, $n_2^\circ=2c/\omega$, and
+\begin{equation}\label{eq:GTstar0}
+G_T^*=\big(2+\sqrt2\big)\,b\sqrt{c\,\omega}+\sqrt{\frac{2\omega\hat c\,\tau}{\Lambda}}+\omega\tau+\Theta .
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Under the stated conditions the unconstrained minimizers of the separable objective in \eqref{eq:reduced} are feasible; $m^\circ$ minimizes $\hat c\tau/m+\omega m/(2\Lambda)$ with value $\sqrt{2\omega\hat c\tau/\Lambda}$. For $a=0$, $\ell_1(c/\omega)=2b\sqrt{c\omega}$ and $\ell_2(2c/\omega)=b\sqrt{2c\omega}$.
+\end{proof}
+
+The condition $n_2^\circ\le m^\circ$ reads $\Lambda\tau\ge\omega (n_2^\circ)^2/(2\hat c)$: the corridor is long or busy enough for the line-haul batch to exceed the local ones. In this \emph{decoupled regime} each leg solves its own economic-order-quantity problem. Outside the regime, \eqref{eq:reduced} is a one-dimensional problem in $m$, and the local batches are $n_i=\min\{n_i^\circ,m,M\}$.
+
+\begin{proposition}[Benchmark with whole-city tours]\label{prop:identity}
+For every $n\le M$,
+\begin{equation}\label{eq:identity}
+G_D^{\mathrm{wc}}(n)=G_T(n,n,n)-\Theta+\frac{(c-\hat c)\,\tau}{n}.
+\end{equation}
+Consequently, with $n_D$ an optimal direct batch size, $G_T^*\le G_D^{\mathrm{wc}*}-(c-\hat c)\tau/n_D+\Theta$, and the three-leg system is optimal whenever $\tau\ge M\Theta/(c-\hat c)$.
+\end{proposition}
+
+\begin{proof}
+The identity follows by comparing \eqref{eq:GT} at $n_1=m=n_2=n$ with \eqref{eq:GD}. The policy $(n_D,n_D,n_D)$ is feasible for the three-leg system because $n_D\le M\le\hat M$; the last claim uses $n_D\le M$.
+\end{proof}
+
+There is no re-sorting value in this case, because neither system zones its tours.
+
+\begin{proposition}[Critical distance with whole-city tours]\label{prop:critical}
+Let $D^{\mathrm{wc}}(\tau):=G_D^{\mathrm{wc}*}(\tau)-G_T^*(\tau)+\Theta$. Then $D^{\mathrm{wc}}(0)\ge 0$, $D^{\mathrm{wc}}$ is nondecreasing in $\tau$, and $D^{\mathrm{wc}}(\tau)\ge(c-\hat c)\tau/M$. Hence there is a critical distance
+\[
+\bar\tau:=\inf\{\tau\ge0: D^{\mathrm{wc}}(\tau)\ge\Theta\}\ \le\ \frac{M\,\Theta}{c-\hat c}
+\]
+such that the three-leg system is optimal if and only if $\tau\ge\bar\tau$ (if $c>\hat c$).
+\end{proposition}
+
+\begin{proof}
+$D^{\mathrm{wc}}(0)\ge0$ and the lower bound follow from Proposition~\ref{prop:identity}. Write $G_D^{\mathrm{wc}*}(\tau)=\omega\tau+2ac+\min_{n\le M}\{F(n)+c\tau/n\}$ with $F(n):=\omega n/(2\Lambda)+\ell_1(n)+\ell_2(n)$, and $G_T^*(\tau)=\omega\tau+2ac+\Theta+\min_{m\le\hat M}\{\Phi(m)+\hat c\tau/m\}$ with $\Phi(m):=\omega m/(2\Lambda)+\min_{n\le\min\{m,M\}}\ell_1(n)+\min_{n\le\min\{m,M\}}\ell_2(n)$. Both minima are concave in $\tau$, and by the envelope theorem the derivative of $D^{\mathrm{wc}}$ is $c/n_D-\hat c/m_T$ wherever it exists, where $n_D$ and $m_T$ are optimal. Suppose $\hat c/m_T>c/n_D$. Then $m_T<n_D\le M$. Since $n_D$ cannot be improved by decreasing it, $F'(n_D)\le c\tau/n_D^2$, that is, $c/n_D\ge\psi(n_D)/\tau$ with $\psi(n):=nF'(n)$. Since $m_T$ cannot be improved by increasing it, the right derivative satisfies $\Phi'_+(m_T)\ge\hat c\tau/m_T^2$. By quasi-convexity of $\ell_i$, $\Phi'_+(m)=\omega/(2\Lambda)+\min\{\ell_1'(m),0\}+\min\{\ell_2'(m),0\}\le F'(m)$ for $m<M$, so $\hat c/m_T\le\psi(m_T)/\tau$. Finally,
+\[
+\psi(n)=n\Big(\frac{\omega}{2\Lambda}+\frac{3\omega a}{2}\Big)+\frac{3\omega b}{4}\sqrt n-\frac{cb}{\sqrt n}
+\]
+is increasing, so $\hat c/m_T\le\psi(m_T)/\tau\le\psi(n_D)/\tau\le c/n_D$, a contradiction. Thus the derivative is nonnegative almost everywhere, and $D^{\mathrm{wc}}$, a difference of concave functions, is nondecreasing.
+\end{proof}
+
+Table~\ref{tab:compare} sets the two ways of dispatching side by side.
+
+\begin{table}[h]
+\centering
+\caption{Waves with zoned tours versus vehicle-by-vehicle dispatch with whole-city tours.}\label{tab:compare}
+\begin{tabular}{p{0.24\textwidth}p{0.36\textwidth}p{0.32\textwidth}}
+\toprule
+ & Waves, zoned tours & One by one, whole-city tours\\
+\midrule
+Consolidation delay & wave$/(2\Lambda)$ & largest batch$/(2\Lambda)$\\
+Largest batch & a common wave for all three legs & the line-haul batch\\
+Time per stop & $a+b/\sqrt W$ & $a+b/\sqrt{n_i}$\\
+Vehicle loads & $\sqrt{2c\rho/(\omega s(W))}$ and $\sqrt2$ times that: depend on the corridor through $W$ & $n_1^\circ$, $n_2^\circ$: depend on $c/\omega$, $a$, $b$ only\\
+$n_2/n_1$ when $a=0$ & $\sqrt2$ & $2$\\
+Line-haul batch & $W^*\ge\max\{\sqrt{2\Lambda\hat c\tau/\omega},(2\Lambda cb/\omega)^{2/3}\}$ & $\sqrt{2\Lambda\hat c\tau/\omega}$ in the decoupled regime\\
+Value over direct shipping & line-haul, re-sorting, decoupling & line-haul, decoupling\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three statements hold under both: the consolidation delay is paid once; the line-haul carries the largest batch; and distribution loads exceed collection loads. The difference is separability. With vehicle-by-vehicle dispatch the routing economies of a leg come from the load of its own vehicles, and the three legs decouple. With waves they come from the wave, which all three legs share, so the wave is pulled up by the cities as well as by the corridor and the vehicle loads depend on the corridor through it.
+
+\section{Illustration and questions for the numerical study}
+
+The parameters below are illustrative and uncalibrated: $c=40$, $\hat c=15$, $a=0.05$, $b=0.6$, $\rho=0.2$, $\Lambda=30$, $M=12$, with time in hours and batches of at least one shipment.
+
+Table~\ref{tab:zoned} reports the optimal batches for $\omega=5$ and an AV capacity large enough not to bind. With waves, the wave is driven mainly by the cities in this example (the two-thirds-power bound is $43.6$, against $9.5$ to $37.9$ for the line-haul bound), so it moves little with $\tau$, and the vehicle loads move with it. With vehicle-by-vehicle dispatch the local batches do not move with $\tau$ and the line-haul batch follows $\sqrt{2\Lambda\hat c\tau/\omega}$. The costs of the two models are not like for like, because whole-city tours have no stem time; even so, the zoned system is cheaper here.
+
+\begin{table}[h]
+\centering
+\caption{Optimal batches and generalized cost per shipment excluding $\Theta$, for $\omega=5$ and $\hat M=120$.}\label{tab:zoned}
+\begin{tabular}{rrlrlr}
+\toprule
+ & \multicolumn{3}{c}{Waves, zoned tours} & \multicolumn{2}{c}{One by one, whole-city tours}\\
+\cmidrule(lr){2-4}\cmidrule(lr){5-6}
+$\tau$ & $W^*$ & $(n_1,n_2)$ & cost & $(n_1,m,n_2)$ & cost\\
+\midrule
+0.5 & 59.0 & $(5.0,\ 7.1)$ & 31.72 & $(5.7,\ 10.2,\ 10.2)$ & 40.31\\
+1 & 60.0 & $(5.0,\ 7.1)$ & 34.35 & $(5.7,\ 13.4,\ 10.4)$ & 43.46\\
+2 & 62.0 & $(5.0,\ 7.1)$ & 39.59 & $(5.7,\ 19.0,\ 10.4)$ & 49.38\\
+4 & 65.7 & $(5.1,\ 7.2)$ & 50.06 & $(5.7,\ 26.8,\ 10.4)$ & 60.69\\
+8 & 72.4 & $(5.2,\ 7.3)$ & 70.93 & $(5.7,\ 37.9,\ 10.4)$ & 82.54\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:illustration} reports the critical distance of the benchmark for $\hat M=30$, $\theta=0.25$, $h=1$, and several values of time.
+
+\begin{table}[h]
+\centering
+\caption{Critical distance $\bar\tau$ (hours) beyond which the three-leg system is cheaper than direct shipping. A value of $0$ means that it is cheaper at every distance.}\label{tab:illustration}
+\begin{tabular}{rrrrr}
+\toprule
+ & \multicolumn{2}{c}{Waves, zoned tours} & \multicolumn{2}{c}{One by one, whole-city tours}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+$\omega$ & $\bar\tau$ & bound \eqref{eq:taubound} & $\bar\tau$ & bound $M\Theta/(c-\hat c)$\\
+\midrule
+1 & 0 & 1.94 & 0.99 & 1.20\\
+2 & 0 & 2.27 & 1.26 & 1.44\\
+5 & 0 & 3.28 & 1.34 & 2.16\\
+10 & 0.10 & 4.96 & 1.15 & 3.36\\
+20 & 0.38 & 8.32 & 1.09 & 5.76\\
+40 & 0.77 & 15.04 & 1.14 & 10.56\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remark}[The value of time and the critical distance]\label{rem:omega}
+With zoned tours the re-sorting and decoupling values outweigh the transfer penalty at low values of time even at zero distance, and the critical distance then rises with $\omega$: time-sensitive goods are shipped directly over a longer range, as the common intuition has it. With whole-city tours the critical distance is not monotone in $\omega$, because a higher value of time raises the transfer penalty $2\omega\theta$ but also shrinks all batches, which raises the saving per shipment on the highway. Both are numerical observations for one set of parameters, and both explicit bounds are loose.
+\end{remark}
+
+The numerical study should report: (i) the gap between the steady-state predictions (wave, vehicle loads, fleet sizes, cost per shipment) and the solutions of the time-expanded program under stationary demand; (ii) which of the two bounds of \eqref{eq:wavebounds} drives the wave across the $(\tau,\Lambda)$ plane; (iii) the loss from rounding to nested integer batch sizes and from unbalanced zones; and, for the benchmark, (iv) the split of the value of transshipment into line-haul, re-sorting, and decoupling values, and the critical distance as a function of $\Lambda$ and $\omega$.
+
+\section{Modelling choices to settle}
+
+\begin{enumerate}
+\item \textbf{The tour-time formula.} Expression \eqref{eq:zonetour} combines an asymptotic routing approximation with an average stem time and balanced zones. It should be checked against tours computed on simulated stops, for the numbers of stops per zone that the model recommends (five to seven in the illustration, where the BHH approximation is rough).
+\item \textbf{Consequence for the time-expanded program.} With waves, the $x$ vehicles on an arc of duration $(j-i)t_0$ share one wave, and their joint capacity is $\min\{xM,\ f^{-1}(x[(j-i)t_0-2\rho])\}$. Since $f^{-1}$ is convex, this is superadditive in $x$; it is a function of an integer variable and can be tabulated, so the program remains a mixed-integer linear program.
+\item \textbf{Value of time versus deadlines.} The time-expanded program uses time windows and a penalty for unserved demand; the steady-state model uses a linear cost of lead time. A lead-time guarantee can be handled by treating $\omega$ as its multiplier.
+\item \textbf{Imbalanced demand.} With rates $\Lambda^+>\Lambda^-$ the highway vehicles of the lighter direction run partly empty. Empty highway time costs $c$ in the direct system and $\hat c$ in the three-leg system, which adds to the line-haul value.
+\item \textbf{Heterogeneous goods.} The handling cost $h$ and the transfer time $\theta$ carry the difference between goods that tolerate transshipment and goods that do not (fragile or perishable goods have a high $h$ or a high $\omega$). With several classes of goods, some may be shipped directly while the rest are transshipped; the two streams then share the HV fleets, and each loses part of its consolidation economies.
+\item \textbf{Capacity in stops versus volume.} $M$ and $\hat M$ count shipments. If shipments differ in size, the vehicle capacity binds in volume while the routing time depends on the number of stops, and the two must be tracked separately.
+\item \textbf{Asymmetric cities.} With city-specific $(a_k,b_k,\rho_k)$ the two ends of a direction have different times per stop, and the two directions are linked through the common wave and the AV balance.
+\end{enumerate}
+
+\end{document}

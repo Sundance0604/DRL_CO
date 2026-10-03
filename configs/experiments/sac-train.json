@@ -1,0 +1,1 @@
+{"name":"Candidate SAC training smoke","dataset":{"dataset_id":"legacy-demo","revision":"latest","split":"train"},"model":{"id":"legacy_dispatch"},"controller":{"id":"train_sac","parameters":{"epochs":2}},"value_function":{"id":"zero"}}

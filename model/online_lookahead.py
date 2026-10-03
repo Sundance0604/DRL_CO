@@ -42,6 +42,10 @@ def fluid_values(sim, ops, extra=None, from_period=None):
     extra: {(hub, booking period): additional expected orders} perturbs the expected demand;
     from_period: first booking period of the expected demand (default: the period after the current one)."""
     net, t0 = sim.net, sim.t
+    params = getattr(sim, "parameters", {})
+    Q, DMAX = params.get("capacity", 7), params.get("max_delay", 3)
+    PHI = params.get("expiry_cost", 300)
+    C_LOADED, C_E = params.get("loaded_cost", 10), params.get("empty_cost", 10)
     hubs, tmax = list(net.H), max(net.tau.values())
     Tbar = sim.T + DMAX + 3 * tmax
     supply = {}
@@ -60,6 +64,8 @@ def fluid_values(sim, ops, extra=None, from_period=None):
         if node[1] < Tbar:
             supply[node] = supply.get(node, 0) + 1
     m = gp.Model(); m.Params.OutputFlag = 0; m.Params.Threads = 1
+    for key, value in getattr(sim, "solver_parameters", {}).items():
+        m.setParam({"time_limit_seconds": "TimeLimit", "mip_gap": "MIPGap", "threads": "Threads", "seed": "Seed"}[key], value)
     m.Params.Method = 2; m.Params.Crossover = 0          # interior point: central duals
     arcs = [(u, v) for u in hubs for v in net.H.neighbors(u)]
     periods = range(t0, Tbar)
@@ -98,7 +104,7 @@ def fluid_values(sim, ops, extra=None, from_period=None):
                 o = SimpleNamespace(departure=dep, destination=des, book_time=t, start_time=ready,
                                     end_time=ready + tau + MEAN_SLACK, penalty=MEAN_N * 5)
                 add(dep, des, MEAN_N, ready, min(math.floor(o.end_time - tau), cutoff),
-                    d * 100 + MEAN_N * 50 + never_served_loss(o, net, sim.T), lam_dep)
+                    d * 100 + MEAN_N * 50 + never_served_loss(o, net, sim.T, PHI), lam_dep)
     m.update()
     for key, terms in cap.items():
         m.addConstr(gp.quicksum(terms) <= Q * xl[key])
@@ -114,8 +120,12 @@ def fluid_values(sim, ops, extra=None, from_period=None):
     cost = gp.quicksum(net.H[a[0]][a[1]]["weight"] * (C_LOADED * xl[a, t] + C_E * xe[a, t]) for (a, t) in xl)
     m.setObjective(gp.quicksum(obj) - cost, GRB.MAXIMIZE)
     m.optimize()
-    assert m.Status == GRB.OPTIMAL
-    return {key: c.Pi for key, c in flow.items()}
+    if m.Status != GRB.OPTIMAL:
+        m.dispose()
+        raise RuntimeError("fluid duals require an optimal LP")
+    result = {key: c.Pi for key, c in flow.items()}
+    m.dispose()
+    return result
 
 
 def rule(kind, ops, repos=False, theta=1.0, V=None):

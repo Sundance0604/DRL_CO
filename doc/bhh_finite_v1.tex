@@ -1,0 +1,694 @@
+\documentclass[10pt, reqno]{amsart}
+\usepackage{graphicx}
+\baselineskip=16pt
+
+\usepackage{indentfirst,csquotes}
+\usepackage[backend=biber, style=numeric]{biblatex}
+\addbibresource{导出的条目.bib}
+\topmargin= .5cm
+\textheight= 20cm
+\textwidth= 32cc
+\baselineskip=16pt
+
+\evensidemargin= .9cm
+\oddsidemargin= .9cm
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsmath,amssymb}
+\usepackage{amssymb,amsthm,amsmath}
+% 让命题与定理共享同一个计数器
+% 注意：下面这行删除了 titlesec
+\usepackage{xcolor,paralist,hyperref,fancyhdr,etoolbox}
+
+\newtheorem{theorem}{Theorem}[]
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{conjecture}[theorem]{Conjecture}
+
+% 使用 etoolbox 安全地修改 amsart 的 section 样式为：大号、粗体、居中
+\patchcmd{\section}{\normalfont\scshape}{\normalfont\Large\bfseries}{}{}
+\hypersetup{
+    colorlinks=true,      % 开启彩色链接（替代难看的红框）
+    linkcolor=cyan,       % 内部文档引用的颜色（如 Section, 公式，图表）设置为青蓝色
+    filecolor=magenta,    % 本地文件链接颜色
+    urlcolor=blue         % 网页链接颜色
+}
+\def\proof{\noindent {\it Proof. $\, $}}
+\def\endproof{\hfill $\Box$ \vskip 5 pt }
+
+\usepackage{lipsum}
+
+\begin{document}
+\title{Title} %%%%%%%%%%%%
+\author[Initial Surname]{Author}
+\date{\today}
+\address{Address}
+\email{example@mail.com}
+\maketitle
+
+\let\thefootnote\relax
+\footnotetext{MSC2020: Primary 00A05, Secondary 00A66.} %%%%%%%%%%
+
+\begin{abstract}
+Abstract
+\end{abstract} %%%%%%%%%
+
+\bigskip
+\section{Introduction}
+
+\section{Model Formulation}
+This paper investigates an intercity flexible-order transportation system, where intra-city deliveries are conducted by manually driven vehicles and intercity transit is operated by automated vehicles. Specifically, manually driven vehicles perform the first-mile delivery by consolidating orders from the origin city at designated transshipment hubs (e.g., highway entrance nodes). From these hubs, automated vehicles line-haul the freight to the destination city, where local manually driven vehicles distribute the orders to their final destinations. Compared with conventional point-to-point intercity transportation—where orders are fulfilled by a single vehicle without transshipment--our proposed scheme restricts vehicle return flows exclusively to automated vehicles. This significantly reduces costs, as automated vehicles incur substantially lower operational expenses than conventional ones during long-distance, repetitive corridor transport.
+
+\subsection{Model Settings} \label{subsec:settings}
+
+This paper assumes that both manually driven and automated vehicles are operated by a centralized platform to serve orders in real time. The operational region consists of two cities, labeled as 1 and 2, connected by a bidirectional line-haul corridor. We use the superscripts $+$ and $-$ to denote flows from city 1 to 2 and from city 2 to 1, respectively. \textcolor{red}{For a direction $\dagger\in\{+,-\}$, we let $\bar{\dagger}$ denote the opposite direction, and we write $\eta_{\dagger}$ and $\bar{\eta}_{\dagger}$ for its origin and destination cities, i.e., $\eta_{+}=\bar{\eta}_{-}=1$ and $\eta_{-}=\bar{\eta}_{+}=2$.} The platform's dispatching decisions are made at discrete time points over a planning horizon $\mathcal{T} = \{0, 1, 2, \dots, T\}$, where $t_0$ represents the duration of a single period.
+
+During each discrete period $(t-1, t]$, the platform receives a set of new orders. Meanwhile, unserved orders from earlier stages $(1, \dots, t-1)$ remain active as long as their latest completion time is not earlier than $t$. We denote the complete set of all active orders at time $t$ by $\mathcal{D} = \mathcal{D}^+ \cup \mathcal{D}^-$. Each type-$l$ order $l \in \mathcal{D}$ is defined by its earliest start time $s_l$, latest completion time $e_l$, and \textcolor{red}{demand volume} $d_l$\textcolor{red}{, which is measured in the number of customer stops: each unit of demand requires one pickup stop in the origin city and one drop-off stop in the destination city}. Under this flexible-order dispatching framework, the total demand does not have to be fully satisfied. If any portion of an order cannot be fulfilled within its time window, it results in an unserved volume $z_l$, which incurs a unit penalty cost $\delta_l$.
+
+Let \textcolor{red}{$N^k$} and \textcolor{red}{$\hat{N}^k$} represent the fixed number of available manually driven vehicles \textcolor{red}{based in city $k \in \{1,2\}$} and \textcolor{red}{the number of} automated vehicles \textcolor{red}{initially located at the hub of city $k$}, respectively, during the dispatching horizon. All vehicles are tracked and managed by the platform which connects two cities via a bidirectional line-haul highway. The single-vehicle capacities for manually driven and automated units are denoted by $M$ and $\hat{M}$. Specifically, automated vehicles are responsible for long-distance intercity transit with a fixed driving time \textcolor{red}{of} $\tau$ \textcolor{red}{periods, where $\tau$ is a positive integer}, while manually driven vehicles are restricted to intra-city operations. Because intra-city orders are scattered across different urban locations and manually driven vehicles operate on closed tours starting and ending at transshipment hubs, the localized collection process inherently forms a Traveling Salesman Problem (TSP). Consequently, the routing service time \textcolor{red}{needed to visit $\lambda$ stops} in city \textcolor{red}{$k$} is approximated via a concave function \textcolor{red}{$f^k(\lambda)=a^k\lambda+b^k\sqrt{\lambda}$} based on the asymptotic BHH framework \cite{Beardwood1959Shortest}\textcolor{red}{, where $a^k>0$ is the handling time per stop and $b^k\ge 0$ is proportional to the square root of the service area of city $k$. Manual vehicles are dispatched in waves: the vehicles that start a tour in city $k$ in the same period and for the same direction leave the hub together and split the city into zones of equal area, one zone per vehicle. By the partitioning property of the BHH limit, the tours of the zones add up to a single tour through all the stops of the wave, so that $v$ vehicles that jointly serve $\lambda$ stops spend $f^k(\lambda)$ on their tours in total, that is, $f^k(\lambda)/v$ each. In addition, each vehicle spends $2\rho^k$ travelling between the hub and its zone, where $\rho^k$ is the average one-way stem time in city $k$. Since $f^k$ is strictly increasing, the maximum number of stops that can be served with a total tour time of $\theta$ is available in closed form:}
+{\color{red}
+\begin{equation}
+(f^k)^{-1}(\theta)=\left(\frac{\sqrt{(b^k)^2+4a^k\theta}-b^k}{2a^k}\right)^{2}.\label{eq:bhh inverse}
+\end{equation}
+}
+The unit-period driving costs for manual and automated vehicles are $c$ and $\hat{c}$, respectively.
+
+Based on the real-time order requests and vehicle availability, the platform optimizes the matching and scheduling decisions. The primary decision variables include: (i) the integer number of manually driven vehicles $x_{ij}^{k\dagger}$ \textcolor{red}{of city $k$ that serve direction-$\dagger$ orders on a tour} operating during time interval $[i, j]$; (ii) the integer number of automated vehicles $y_{ij}^{\dagger}$ traveling between the two cities \textcolor{red}{in direction $\dagger$ during $[i,j]$}; and (iii) the continuous variables \textcolor{red}{$g_{ij}^{kl}$} and $\hat{g}_{ij}^{l}$ representing the freight volumes \textcolor{red}{of order $l$ carried on arc $(i,j)$ by the manual vehicles of city $k$ and by the automated vehicles, respectively. For an order $l\in\mathcal{D}^{\dagger}$, $g_{ij}^{\eta_{\dagger} l}$ is the volume collected in the origin city and $g_{ij}^{\bar{\eta}_{\dagger} l}$ is the volume distributed in the destination city.}
+
+\subsection{Mandatory Transshipment Scheme}\label{subsec:mandatory}
+Over the planning horizon $\mathcal{T}$, the platform's dispatching decisions are updated at each sequential stage $t \in \mathcal{T}$, whereby the integer vehicle deployment variables $x_{ij}^{k\dagger}$ and $y_{ij}^{\dagger}$ are dynamically optimized. Under the mandatory transshipment scheme, all freight flows are strictly constrained to pass through the transshipment hubs. To formalize this multi-stage optimization framework, we define $\hat{\mathcal{A}} := \{(i,j) : i,j \in \mathcal{T}, i+\tau=j\}$ as the set of all admissible period pairs for $y_{ij}^{\dagger}$. Similarly, \textcolor{red}{$\mathcal{A}^k := \{(i,j) : i,j \in \mathcal{T},\ i<j,\ j-i \le \lceil (2\rho^k+f^k(M))/t_0 \rceil\}$}, $\forall k \in \{1,2\}$ represents the set of possible service windows for manual vehicle operations $x_{ij}^{k\dagger}$. \textcolor{red}{A wave of $v$ vehicles on arc $(i,j)\in\mathcal{A}^k$ has $(j-i)t_0-2\rho^k$ of tour time per vehicle, so it can serve at most $K^k_{ij}(v) := \min\{vM,\ (f^k)^{-1}(v\,[(j-i)t_0-2\rho^k]^+)\}$ stops, where $[\cdot]^+$ denotes the positive part. Because $(f^k)^{-1}$ is convex, $K^k_{ij}(v)$ grows more than proportionally in $v$ until the vehicle capacity binds: a larger wave has denser zones. The values $K^k_{ij}(v)$, $v=1,\dots,N^k$, are constants that are computed from \eqref{eq:bhh inverse} before the optimization. To keep the formulation a mixed-integer linear program, we introduce binary variables $u^{k\dagger}_{ijv}$ that equal one if exactly $v$ vehicles of city $k$ are assigned to arc $(i,j)$ for direction $\dagger$.} In addition, we define $\mathcal{S}^k(t) := \{(i,j) : (i,j) \in \mathcal{A}^k, i \le t < j\}, \forall t \in \mathcal{T}, k \in \{1,2\}$. Similarly, $\hat{\mathcal{S}}(t) := \{(i,j) : (i,j) \in \hat{\mathcal{A}}, i \le t < j\}$ is introduced to dynamically track active intercity vehicle movements at time $t$.
+\begin{equation}
+\min_{\mathbf{X}, \mathbf{Y}, \mathbf{G}, \hat{\mathbf{G}}, \mathbf{Z}} \quad \sum_{l \in \mathcal{D}} \delta_l z_l + \sum_{k \in \{1,2\}} \sum_{\dagger \in \{+,-\}} \sum_{(i,j) \in \mathcal{A}^{k}} x_{ij}^{k\dagger} (j-i) c t_0 + \sum_{(i,j) \in \hat{\mathcal{A}}} \sum_{\dagger \in \{+,-\}} y_{ij}^{\dagger} \hat{c} \tau t_0\label{eq:obj}
+\end{equation}
+
+\noindent \text{s.t.}
+\begin{equation}
+\sum_{\dagger \in \{+,-\}} \sum_{(i,j) \in \mathcal{S}^k(t)} x_{ij}^{k\dagger} \le N^k, \quad \forall k \in \{1,2\}, t \in \mathcal{T},\label{eq:num man veh}
+\end{equation}
+
+\begin{equation}
+\sum_{\dagger \in \{+,-\}} \sum_{(i,j) \in \hat{\mathcal{S}}(t)} y_{ij}^{\dagger} \le \hat{N}^1 + \hat{N}^2, \quad \forall t \in \mathcal{T},\label{num auto veh}
+\end{equation}
+
+\begin{equation}
+ \hat{N}^1-\sum_{(i,j) : (i,j) \in \hat{\mathcal{A}}, i \le t} y_{ij}^+ + \sum_{(i,j) : (i,j) \in \hat{\mathcal{A}}, j \le t} y_{ij}^- \ge 0, \quad \forall t \in \mathcal{T},\label{bal auto +}
+\end{equation}
+
+\begin{equation}
+ \hat{N}^2-\sum_{(i,j) : (i,j) \in \hat{\mathcal{A}}, i \le t} y_{ij}^- + \sum_{(i,j) : (i,j) \in \hat{\mathcal{A}}, j \le t} y_{ij}^+  \ge 0, \quad \forall t \in \mathcal{T},\label{bal auto -}
+\end{equation}
+
+{\color{red}
+\begin{equation}
+\sum_{l \in \mathcal{D}^{\dagger}} g_{ij}^{kl} \le \sum_{v=1}^{N^k} K^k_{ij}(v)\, u_{ijv}^{k\dagger}, \quad \forall k \in \{1,2\}, \dagger \in \{+,-\}, (i,j) \in \mathcal{A}^k,\label{BHH}
+\end{equation}
+
+\begin{equation}
+x_{ij}^{k\dagger} = \sum_{v=1}^{N^k} v\, u_{ijv}^{k\dagger}, \qquad \sum_{v=1}^{N^k} u_{ijv}^{k\dagger} \le 1, \quad \forall k \in \{1,2\}, \dagger \in \{+,-\}, (i,j) \in \mathcal{A}^k,\label{wave link}
+\end{equation}
+
+\begin{equation}
+\sum_{l\in\mathcal{D}^{\dagger}}\hat{g}_{ij}^l \le \hat{M}\, y_{ij}^{\dagger}, \quad \forall \dagger \in \{+,-\}, (i,j) \in \hat{\mathcal{A}},\label{auto vol}
+\end{equation}
+
+\begin{equation}
+g_{ij}^{kl} = 0, \quad \forall (i,j,k,l) \in \mathcal{E},\label{violate}
+\end{equation}
+
+\begin{equation}
+\sum_{(i',j') \in \hat{\mathcal{A}} :\, i' \le i} \hat{g}_{i'j'}^l \le \sum_{(i',j') \in \mathcal{A}^{\eta_{\dagger}} :\, j' \le i} g_{i'j'}^{\eta_{\dagger} l}, \quad \forall i \in \mathcal{T}, \dagger \in \{+,-\}, l \in \mathcal{D}^{\dagger},\label{transfer step 1}
+\end{equation}
+
+\begin{equation}
+\sum_{(i',j') \in \hat{\mathcal{A}} :\, j' \le i} \hat{g}_{i'j'}^l \ge \sum_{(i',j') \in \mathcal{A}^{\bar{\eta}_{\dagger}} :\, i' \le i} g_{i'j'}^{\bar{\eta}_{\dagger} l}, \quad \forall i \in \mathcal{T}, \dagger \in \{+,-\}, l \in \mathcal{D}^{\dagger},\label{transfer step 2}
+\end{equation}
+
+\begin{equation}
+d_l = z_l + \sum_{(i,j) \in \mathcal{A}^k} g_{ij}^{kl}, \quad \forall k \in \{1,2\}, l \in \mathcal{D},\label{unserved}
+\end{equation}
+
+\begin{equation}
+x_{ij}^{k\dagger} \in \mathbb{Z}^+,\quad y_{ij}^{\dagger} \in \mathbb{Z}^+,\quad u_{ijv}^{k\dagger} \in \{0,1\},\quad g_{ij}^{kl} \ge 0,\quad \hat{g}_{ij}^{l} \ge 0,\quad z_l \ge 0,\label{domain}
+\end{equation}
+}
+where \textcolor{red}{$\mathcal{E} := \{(i,j,k,l) : l \in \mathcal{D}^{\dagger},\ k=\eta_{\dagger},\ (i,j) \in \mathcal{A}^k,\ i < s_l\} \cup \{(i,j,k,l) : l \in \mathcal{D}^{\dagger},\ k=\bar{\eta}_{\dagger},\ (i,j) \in \mathcal{A}^k,\ j > e_l\}$} denotes the set of \textcolor{red}{arc--order combinations} that violate the time-window constraints\textcolor{red}{: a collection tour in the origin city cannot start before $s_l$, and a distribution tour in the destination city cannot end after $e_l$}. The objective function \eqref{eq:obj} aims to minimize the systemic operational expenditures, which comprise vehicle dispatching costs and non-delivery penalties for unserved orders over the planning horizon $\mathcal{T}$. Constraints \eqref{eq:num man veh} and \eqref{num auto veh} guarantee that the total number of manual and automated vehicles actively deployed in any period does not exceed their respective available fleet sizes. To ensure temporal and spatial consistency, Constraints \eqref{bal auto +} and \eqref{bal auto -} regulate vehicle relocation, certifying that the net spatial flows through transshipment hubs remain within physical fleet boundaries. \textcolor{red}{Summing these two constraints yields \eqref{num auto veh}, which is therefore implied and is kept only for readability.} The inverse BHH approximation framework is embedded in Constraint \eqref{BHH}, mapping the available tour duration \textcolor{red}{and the number of vehicles in the wave} to the maximum permissible cargo volume \textcolor{red}{that the wave} can sustain\textcolor{red}{; Constraint \eqref{wave link} ties the wave-size indicators to the number of vehicles on the arc}. Constraint \eqref{auto vol} imposes a counterpart capacity restriction for automated long-haul units. As the set $\mathcal{E}$ aggregates all \textcolor{red}{arc--order combinations} that violate service windows, Constraint \eqref{violate} intuitively forces the corresponding freight allocation variables to zero. Constraints \eqref{transfer step 1}–\eqref{transfer step 2} ensure flow conservation of \textcolor{red}{freight} at transfer nodes. \textcolor{red}{Specifically, \eqref{transfer step 1} states that the cumulative volume of order $l$ loaded onto automated vehicles by time $i$ cannot exceed the cumulative volume whose collection tours have returned to the origin hub by time $i$, and \eqref{transfer step 2} states that the cumulative volume sent out on distribution tours by time $i$ cannot exceed the cumulative volume that has arrived at the destination hub by time $i$.} Finally, Constraint \eqref{unserved} \textcolor{red}{requires the collected and the distributed volumes of each order to coincide and defines the remainder as} the unserved \textcolor{red}{freight} volume\textcolor{red}{, and Constraint \eqref{domain} specifies the variable domains}.
+
+\subsection{Flexible Delivery Scheme with Direct-shipping Options}\label{subsec:flexible}
+
+The rigid restrictions imposed by the previously defined mandatory transshipment scheme overlook the spatial-temporal heterogeneity of practical demand profiles. In reality, certain high-value commodities, such as fragile or time-sensitive perishable goods, are highly sensitive to the multi-stage delays and physical handling risks associated with transshipment hubs. Consequently, it is imperative to incorporate a direct shipping strategy, under which conventional vehicles complete the entire intercity journey point-to-point, completely bypassing the terminal cross-docking operations. To formalize this hybrid extension, the structural composition of the original objective function is modified by introducing a new decision variable, $w^{\dagger}_{ij}\in \mathbb{Z}^+$, which represents the integer fleet size of manual vehicles allocated to direct point-to-point transportation \textcolor{red}{in direction $\dagger$ during $[i,j]$}. Correspondingly, let $\tilde{g}^l_{ij} \in \mathbb{R}^+$ denote the continuous multi-commodity network flow variable capturing the freight volume of type-$l$ orders fulfilled via the direct routing pathway. By compounding the localized routing frictions of both geographic regions, the joint \textcolor{red}{duration of a direct trip in direction $\dagger$, for a wave of $v$ vehicles that jointly serve $\lambda$ stops,} can be aggregated as \textcolor{red}{$\tilde{f}^{\dagger}(\lambda,v)=2\rho^{\eta_{\dagger}}+f^{\eta_{\dagger}}(\lambda)/v+\tau t_0+f^{\bar{\eta}_{\dagger}}(\lambda/v)$. The collection tours are zoned as above, whereas the orders on a vehicle are scattered over the whole destination city, so its distribution tour cannot be zoned and takes $f^{\bar{\eta}_{\dagger}}(\lambda/v)$}. Given that the highway line-haul transit time $\tau$ remains deterministic, the maximum permissible cargo capacity sustained by \textcolor{red}{a direct wave} can be tractably formulated by subtracting the fixed intercity driving time from the global temporal interval $[i, j]$. \textcolor{red}{Accordingly, we define the set of direct-shipping arcs as $\tilde{\mathcal{A}} := \{(i,j) : i,j \in \mathcal{T},\ \tau \le j-i \le \tau+\lceil (2\max_k\rho^k+f^1(M)+f^2(M))/t_0 \rceil\}$ and the capacity of a wave of $v$ direct vehicles on arc $(i,j)\in\tilde{\mathcal{A}}$ in direction $\dagger$ as $\tilde{K}^{\dagger}_{ij}(v) := \max\{\lambda\in[0,vM] : \tilde{f}^{\dagger}(\lambda,v)\le (j-i)t_0\}$, with $\tilde{K}^{\dagger}_{ij}(v):=0$ if no such $\lambda$ exists. Since $\tilde{f}^{\dagger}$ is increasing in $\lambda$, these values are found by bisection and tabulated before the optimization, and binary variables $\tilde{u}^{\dagger}_{ijv}$ indicate that exactly $v$ direct vehicles are assigned to arc $(i,j)$ in direction $\dagger$. Arcs with $j-i=\tau$ have zero capacity and represent empty repositioning trips. A direct vehicle leaves the fleet of the origin city $\eta_{\dagger}$ at time $i$ and joins the fleet of the destination city $\bar{\eta}_{\dagger}$ at time $j$, where it becomes available for local tours or for a direct trip in the opposite direction. The unit-period cost of a manual vehicle on a direct trip is denoted by $\tilde{c}$.}
+{\color{red}
+\begin{equation}
+\begin{split}
+\min_{\mathbf{X}, \mathbf{Y}, \mathbf{W}, \mathbf{G}, \hat{\mathbf{G}}, \tilde{\mathbf{G}}, \mathbf{Z}} \quad \sum_{l \in \mathcal{D}} \delta_l z_l+ &\sum_{k \in \{1,2\}} \sum_{\dagger \in \{+,-\}} \sum_{(i,j) \in \mathcal{A}^{k}} x_{ij}^{k\dagger} (j-i) c t_0 + \sum_{(i,j) \in \hat{\mathcal{A}}} \sum_{\dagger \in \{+,-\}} y_{ij}^{\dagger} \hat{c} \tau t_0+
+\\&\sum_{(i,j)\in\tilde{\mathcal{A}}}\sum_{\dagger\in\{+,-\}}w^{\dagger}_{ij}(j-i)\tilde{c}t_0,\label{m2:obj}
+\end{split}
+\end{equation}
+}
+
+\noindent \text{s.t.}
+{\color{red}
+\begin{equation}
+\sum_{\dagger' \in \{+,-\}} \sum_{(i,j) \in \mathcal{S}^k(t)} x_{ij}^{k\dagger'} +\sum_{(i,j)\in\tilde{\mathcal{A}} :\, i \le t}w^{\dagger}_{ij}-\sum_{(i,j)\in\tilde{\mathcal{A}} :\, j \le t}w^{\bar{\dagger}}_{ij}\le N^k, \quad \forall \dagger \in \{+,-\}, k=\eta_{\dagger}, t \in \mathcal{T},\label{m2:num man veh}
+\end{equation}
+}
+
+\begin{equation}
+\sum_{\dagger \in \{+,-\}} \sum_{(i,j) \in \hat{\mathcal{S}}(t)} y_{ij}^{\dagger} \le \hat{N}^1 + \hat{N}^2, \quad \forall t \in \mathcal{T},\label{m2:num auto veh}
+\end{equation}
+
+\begin{equation}
+ \hat{N}^1-\sum_{(i,j) : (i,j) \in \hat{\mathcal{A}}, i \le t} y_{ij}^+ + \sum_{(i,j) : (i,j) \in \hat{\mathcal{A}}, j \le t} y_{ij}^- \ge 0, \quad \forall t \in \mathcal{T},\label{m2:bal auto +}
+\end{equation}
+
+\begin{equation}
+ \hat{N}^2-\sum_{(i,j) : (i,j) \in \hat{\mathcal{A}}, i \le t} y_{ij}^- + \sum_{(i,j) : (i,j) \in \hat{\mathcal{A}}, j \le t} y_{ij}^+  \ge 0, \quad \forall t \in \mathcal{T},\label{m2:bal auto -}
+\end{equation}
+
+{\color{red}
+\begin{equation}
+\sum_{l \in \mathcal{D}^{\dagger}} g_{ij}^{kl} \le \sum_{v=1}^{N^k} K^k_{ij}(v)\, u_{ijv}^{k\dagger}, \quad \forall k \in \{1,2\}, \dagger \in \{+,-\}, (i,j) \in \mathcal{A}^k,\label{m2:BHH}
+\end{equation}
+
+\begin{equation}
+x_{ij}^{k\dagger} = \sum_{v=1}^{N^k} v\, u_{ijv}^{k\dagger}, \qquad \sum_{v=1}^{N^k} u_{ijv}^{k\dagger} \le 1, \quad \forall k \in \{1,2\}, \dagger \in \{+,-\}, (i,j) \in \mathcal{A}^k,\label{m2:wave link}
+\end{equation}
+
+\begin{equation}
+\sum_{l\in\mathcal{D}^{\dagger}}\hat{g}_{ij}^l \le \hat{M}\, y_{ij}^{\dagger}, \quad \forall \dagger \in \{+,-\}, (i,j) \in \hat{\mathcal{A}},\label{m2:auto vol}
+\end{equation}
+
+\begin{equation}
+\sum_{l \in \mathcal{D}^{\dagger}} \tilde{g}_{ij}^l \le \sum_{v=1}^{N^1+N^2} \tilde{K}^{\dagger}_{ij}(v)\, \tilde{u}_{ijv}^{\dagger}, \quad \forall \dagger \in \{+,-\}, (i,j) \in \tilde{\mathcal{A}},\label{m2:direct BHH}
+\end{equation}
+
+\begin{equation}
+w_{ij}^{\dagger} = \sum_{v=1}^{N^1+N^2} v\, \tilde{u}_{ijv}^{\dagger}, \qquad \sum_{v=1}^{N^1+N^2} \tilde{u}_{ijv}^{\dagger} \le 1, \quad \forall \dagger \in \{+,-\}, (i,j) \in \tilde{\mathcal{A}},\label{m2:direct wave link}
+\end{equation}
+
+\begin{equation}
+g_{ij}^{kl} = 0, \quad \forall (i,j,k,l) \in \mathcal{E},\label{m2:violate}
+\end{equation}
+
+\begin{equation}
+\tilde{g}_{ij}^{l} = 0, \quad \forall (i,j,l) \in \tilde{\mathcal{E}},\label{m2:violate direct}
+\end{equation}
+
+\begin{equation}
+\sum_{(i',j') \in \hat{\mathcal{A}} :\, i' \le i} \hat{g}_{i'j'}^l \le \sum_{(i',j') \in \mathcal{A}^{\eta_{\dagger}} :\, j' \le i} g_{i'j'}^{\eta_{\dagger} l}, \quad \forall i \in \mathcal{T}, \dagger \in \{+,-\}, l \in \mathcal{D}^{\dagger},\label{m2:transfer step 1}
+\end{equation}
+
+\begin{equation}
+\sum_{(i',j') \in \hat{\mathcal{A}} :\, j' \le i} \hat{g}_{i'j'}^l \ge \sum_{(i',j') \in \mathcal{A}^{\bar{\eta}_{\dagger}} :\, i' \le i} g_{i'j'}^{\bar{\eta}_{\dagger} l}, \quad \forall i \in \mathcal{T}, \dagger \in \{+,-\}, l \in \mathcal{D}^{\dagger},\label{m2:transfer step 2}
+\end{equation}
+
+\begin{equation}
+d_l = z_l + \sum_{(i,j) \in \mathcal{A}^k} g_{ij}^{kl}+\sum_{(i,j)\in\tilde{\mathcal{A}}}\tilde{g}^l_{ij}, \quad \forall k \in \{1,2\}, l \in \mathcal{D},\label{m2:unserved}
+\end{equation}
+
+\begin{equation}
+\sum_{(i,j)\in\tilde{\mathcal{A}}} w^{+}_{ij} = \sum_{(i,j)\in\tilde{\mathcal{A}}} w^{-}_{ij},\label{m2:return}
+\end{equation}
+
+\begin{equation}
+x_{ij}^{k\dagger},\ y_{ij}^{\dagger},\ w_{ij}^{\dagger} \in \mathbb{Z}^+,\quad u_{ijv}^{k\dagger},\ \tilde{u}_{ijv}^{\dagger} \in \{0,1\},\quad g_{ij}^{kl} \ge 0,\quad \hat{g}_{ij}^{l} \ge 0,\quad \tilde{g}_{ij}^{l} \ge 0,\quad z_l \ge 0,\label{m2:domain}
+\end{equation}
+}
+\textcolor{red}{where $\tilde{\mathcal{E}} := \{(i,j,l) : l \in \mathcal{D},\ (i,j) \in \tilde{\mathcal{A}},\ i < s_l \text{ or } j > e_l\}$ collects the direct-shipping arcs that violate the time window of order $l$.}
+
+With the integration of the direct-shipping option, the mathematical structure of the model becomes considerably more sophisticated, requiring structural updates to both the objective function and the constraints. In the revised objective function \eqref{m2:obj}, a novel component is appended to capture the incremental expenditures generated by direct-shipping activities. Crucially, Constraint \eqref{m2:num man veh} governs the spatiotemporal availability of localized manual fleets; unlike the baseline model where intra-city fleet sizes remain static, this formulation dynamically tracks fleet sizes because the cross-city entry and exit flows induced by direct-shipping manual vehicles inherently disrupt the localized fleet conservation. \textcolor{red}{Specifically, the number of manual vehicles physically present in city $k$ at time $t$ equals $N^k$ minus the cumulative number of direct vehicles that have departed from city $k$ plus the cumulative number of direct vehicles that have arrived from the other city, and the number of vehicles on local tours cannot exceed this quantity.} Furthermore, Constraint \eqref{m2:direct BHH} imposes the joint capacity restriction, ensuring that the continuous multi-commodity freight volume allocated to direct pathways does not exceed the aggregate physical capacity derived via the joint BHH approximation\textcolor{red}{; Constraints \eqref{m2:wave link} and \eqref{m2:direct wave link} tie the wave-size indicators to the numbers of vehicles, and Constraint \eqref{m2:violate direct} extends the time-window restrictions to direct trips}. \textcolor{red}{Constraint \eqref{m2:return} requires the numbers of direct trips in the two directions to be equal over the horizon, so that the manual fleet of each city is restored at the end of the horizon; any imbalance between the two directions must be covered by empty repositioning arcs, whose cost is charged in \eqref{m2:obj}. In this way, the return flows of direct-shipping vehicles are priced explicitly.} Finally, since order fulfillment is now bifurcated into transshipment and direct-shipping streams, Constraint \eqref{m2:unserved} is modified accordingly to accurately capture the updated unserved cargo deficit.
+
+The primary modeling features and scholarly contributions of this study are summarized as follows. First, we formalize a synchronized logistics system that seamlessly integrates intra-city pickup/delivery with intercity line-haul transportation\textcolor{red}{: freight orders are collected by manual vehicles, consolidated at the transshipment hubs, line-hauled by automated vehicles, and distributed by manual vehicles, with direct shipping retained as a benchmark}. Second, by embedding the continuum BHH approximation framework into the intra-city service domain, the model successfully captures localized routing while \textcolor{red}{remaining a mixed-integer linear program, because the approximation enters only through precomputed arc capacities}. Lastly, \textcolor{red}{the formulation makes explicit how the batch sizes of the collection, line-haul, and distribution legs are coupled through consolidation at the hubs, and it provides the finite-horizon counterpart against which steady-state batching rules can be validated}.
+\section{Solution Approach}
+
+To effectively handle the complex dynamics of both vehicle fleets and order streams, this study utilizes a rolling horizon approach to achieve optimal dispatching decisions over the entire planning horizon. In dynamic logistics operations, freight orders arrive continuously over time. While it appears intuitive to assign vehicles immediately whenever a new order emerges, such a myopic, continuous-trigger policy is computationally unacceptable and operationally inefficient in real-world applications.Therefore, a structured rolling horizon framework is introduced, The remainder of this part is organized as follows. Section~\ref{sub:rolling horizon} describes the rolling horizon structure. Section~\ref{sub:candidate generation} presents the candidate arc generation procedure, which constructs a reduced set of feasible service arcs while accounting for inherited vehicle schedules. Section~\ref{subsec:sol construction PBOR} develops a dynamic priority construction heuristic to generate an initial feasible solution for the reduced MILP.
+
+\subsection{Rolling Horizon Framework}\label{sub:rolling horizon}
+
+To solve the proposed dynamic optimization model efficiently, we adopt a rolling horizon framework. At each decision epoch $t_h$, the operator solves a reduced optimization problem over a finite planning horizon and implements only the decisions that fall within the current control window. After these decisions are fixed, the horizon rolls forward and the system state, including newly arrived orders, remaining unserved demand, and vehicle availability, is updated.
+
+We define three time sets for each rolling horizon. The control window is denoted by
+\[
+\mathcal T_h^{\mathrm{ctrl}}
+=
+\{t_h,\ldots,t_h+K-1\},
+\]
+where decisions starting in this interval are implemented and fixed before the next horizon. The start-time window is denoted by
+\[
+\mathcal T_h^{\mathrm{start}}
+=
+\{t_h,\ldots,t_h+H-1\},
+\]
+which contains all possible start times considered in the optimization problem at decision epoch $t_h$. Since a transportation task that starts near the end of the start-time window may complete after $t_h+H-1$, we further introduce an extended completion window
+\[
+\mathcal T_h^{\mathrm{ext}}
+=
+\{t_h,\ldots,t_h+H+L-1\}.
+\]
+The extended window is only used to allow feasible service arcs to complete outside the start-time window, and decisions with starting times outside $\mathcal T_h^{\mathrm{ctrl}}$ are not fixed in the current iteration.
+
+Under this framework, candidate arcs are generated with start times in $\mathcal T_h^{\mathrm{start}}$ and completion times in $\mathcal T_h^{\mathrm{ext}}$. The optimization model is then solved over these candidate arcs. Only the dispatching and flow decisions whose service starts within $\mathcal T_h^{\mathrm{ctrl}}$ are implemented, while the remaining decisions are discarded and reconsidered in the next horizon. This design enables the model to account for future feasibility while preserving the flexibility to revise later decisions as new orders and vehicle states become available.
+\subsection{Candidate Generation}\label{sub:candidate generation}
+This section introduces an adaptive network pruning technique that leverages the realized execution states inherited from the preceding decision horizon. In a standard static or non-rolling optimization framework, the structural definitions of the time-expanded sets---specifically $\mathcal{A}^k$, $\hat{\mathcal{A}}$, $\tilde{\mathcal{A}}^k$, $\mathcal{S}^k(t)$, $\hat{\mathcal{S}}(t)$, and $\tilde{\mathcal{S}}^k(t)$---must remain overly conservative to preserve all structurally possible paths. Conversely, under a rolling horizon architecture, the initial state of the fleet at the current epoch is fully deterministic, mirroring the state-transition dynamics observed in reinforcement learning. Consequently, traditional static arc definitions incur substantial computational redundancy because they overlook the committed vehicle completion times and location updates from previous operational intervals. To resolve this tractability bottleneck, we propose a state-dependent candidate arc generation procedure. This mechanism dynamically calibrates available fleet capacity based on historically committed trips, and systematically eliminates time-expanded arcs that are rendered mutually exclusive or physically infeasible under the inherited spatial-temporal states. Anchored on Proposition \ref{prop:rha can gen}, the proposed algorithm significantly compresses the cardinality of the search spaces ($\mathcal{A}^k$, $\hat{\mathcal{A}}$, $\tilde{\mathcal{A}}^k$, $\mathcal{S}^k(t)$, $\hat{\mathcal{S}}(t)$, $\tilde{\mathcal{S}}^k(t)$) by infusing real-time state feedback into the preprocessing phase.
+\begin{algorithm}[!t]
+\caption{Rolling-horizon-aware candidate arc generation}
+\label{alg:rha can gen}
+\begin{algorithmic}[1]
+
+\Statex \textbf{Input:} Current decision epoch $t_h$, start-window length $H$,
+extension length $L$,
+$\mathcal{T}_h^{\mathrm{start}}=\{t_h,\ldots,t_h+H\}$,
+$\mathcal{T}_h^{\mathrm{ext}}=\{t_h,\ldots,t_h+H+L\}$,
+active orders $\mathcal{D}_h$,
+committed local manual schedules $\Omega_h^{k\dagger}$,
+committed automated schedules $\widehat{\Omega}_h^\dagger$,
+committed direct-shipping schedules $\widetilde{\Omega}_h^\dagger$,
+fleet sizes $N^k,\widehat N^1,\widehat N^2$, service-time functions
+$f^k(\cdot)$, direct-shipping service-time function $\widetilde f(\cdot)$,
+and line-haul time $\tau$.
+
+\Statex \textbf{Output:} Reduced local manual arcs $\mathcal{A}_h^k$,
+automated arcs $\widehat{\mathcal{A}}_h$,
+direct-shipping arcs $\widetilde{\mathcal{A}}_h^\dagger$,
+active sets $\mathcal{S}_h^k(t)$, $\widehat{\mathcal{S}}_h(t)$,
+$\widetilde{\mathcal{S}}_h^k(t)$.
+
+\State Initialize:
+$\mathcal{A}_h^k \leftarrow \emptyset$,
+$\widehat{\mathcal{A}}_h \leftarrow \emptyset$,
+$\widetilde{\mathcal{A}}_h^\dagger \leftarrow \emptyset$.
+
+\State Compute committed local manual-vehicle occupation:
+\Statex \quad
+$B_{h,\mathrm{loc}}^k(t)
+=
+\sum_{\dagger\in\{+,-\}}
+\sum_{(i,j)\in\Omega_h^{k\dagger}:i\le t<j}
+\bar x_{ij}^{k\dagger},
+\quad
+\forall k,\ t\in\mathcal{T}_h^{\mathrm{ext}}$.
+
+\State Compute committed direct-shipping manual-vehicle occupation:
+\Statex \quad
+$B_{h,\mathrm{dir}}^k(t)
+=
+\sum_{\dagger\in\{+,-\}}
+\sum_{(i,j)\in\widetilde{\Omega}_h^\dagger:i\le t<j}
+\mathbf{1}_{ij\dagger}^k(t)\bar w_{ij}^{\dagger},
+\quad
+\forall k,\ t\in\mathcal{T}_h^{\mathrm{ext}}$.
+
+\State Update state-dependent available manual fleet:
+\Statex \quad
+$N_h^k(t)
+=
+N^k
+-
+B_{h,\mathrm{loc}}^k(t)
+-
+B_{h,\mathrm{dir}}^k(t),
+\quad
+\forall k,\ t\in\mathcal{T}_h^{\mathrm{ext}}$.
+
+\State Compute committed automated-vehicle occupation and available fleet:
+\Statex \quad
+$\widehat B_h(t)
+=
+\sum_{\dagger\in\{+,-\}}
+\sum_{(i,j)\in\widehat\Omega_h^\dagger:i\le t<j}
+\bar y_{ij}^{\dagger},
+\quad
+\forall t\in\mathcal{T}_h^{\mathrm{ext}}$.
+\Statex \quad
+$\widehat N_h(t)
+=
+\widehat N^1+\widehat N^2-\widehat B_h(t),
+\quad
+\forall t\in\mathcal{T}_h^{\mathrm{ext}}$.
+
+\State Generate local manual service arcs $\mathcal{A}_h^k$:
+\Statex \quad
+$\mathcal{A}_h^k
+=
+\big\{
+(i,j):
+i\in\mathcal{T}_h^{\mathrm{start}},
+j\in\mathcal{T}_h^{\mathrm{ext}},
+i<j,
+j\le i+f^k(M),$
+\Statex
+$\qquad\qquad
+N_h^k(s)>0,\ \forall s\in[i,j),
+\ \exists l\in\mathcal D_h
+\text{ such that } s_l\le i,\ j\le e_l
+\big\}$.
+
+\State Generate automated line-haul arcs $\widehat{\mathcal{A}}_h$:
+\Statex \quad
+$\widehat{\mathcal{A}}_h
+=
+\big\{
+(i,j):
+i\in\mathcal{T}_h^{\mathrm{start}},
+j\in\mathcal{T}_h^{\mathrm{ext}},
+j=i+\tau,
+\widehat N_h(s)>0,\ \forall s\in[i,j)
+\big\}$.
+
+\State Generate direct-shipping arcs $\widetilde{\mathcal{A}}_h^\dagger$:
+\Statex \quad
+$\widetilde{\mathcal{A}}_h^\dagger
+=
+\big\{
+(i,j):
+i\in\mathcal{T}_h^{\mathrm{start}},
+j\in\mathcal{T}_h^{\mathrm{ext}},
+i<j,
+j\le i+\widetilde f(M),$
+\Statex
+$\qquad\qquad
+N_h^{\eta^\dagger}(s)>0,\ \forall s\in[i,j),
+\ \exists l\in\mathcal D_h^\dagger
+\text{ such that } s_l\le i,\ j\le e_l
+\big\}$.
+
+\State Construct active local manual arc sets:
+\Statex \quad
+$\mathcal{S}_h^k(t)
+=
+\{(i,j)\in\mathcal{A}_h^k:i\le t<j\}
+\cup
+\{(i,j)\in\Omega_h^{k\dagger}:i\le t<j,\ \dagger\in\{+,-\}\},
+\quad
+\forall k,\ t\in\mathcal{T}_h^{\mathrm{ext}}$.
+
+\State Construct active automated arc sets:
+\Statex \quad
+$\widehat{\mathcal{S}}_h(t)
+=
+\{(i,j)\in\widehat{\mathcal{A}}_h:i\le t<j\}
+\cup
+\{(i,j)\in\widehat{\Omega}_h^\dagger:i\le t<j,\ \dagger\in\{+,-\}\},
+\quad
+\forall t\in\mathcal{T}_h^{\mathrm{ext}}$.
+
+\State Construct active direct-shipping arc sets:
+\Statex \quad
+$\widetilde{\mathcal{S}}_h^k(t)
+=
+\{(i,j)\in\widetilde{\mathcal{A}}_h^\dagger:
+i\le t<j,\ \mathbf{1}_{ij\dagger}^k(t)=1\}
+\cup
+\{(i,j)\in\widetilde{\Omega}_h^\dagger:
+i\le t<j,\ \mathbf{1}_{ij\dagger}^k(t)=1\},
+\quad
+\forall k,\ t\in\mathcal{T}_h^{\mathrm{ext}}$.
+
+\State \Return
+$\mathcal{A}_h^k$,
+$\widehat{\mathcal{A}}_h$,
+$\widetilde{\mathcal{A}}_h^\dagger$,
+$\mathcal{S}_h^k(t)$,
+$\widehat{\mathcal{S}}_h(t)$,
+$\widetilde{\mathcal{S}}_h^k(t)$.
+
+\end{algorithmic}
+\end{algorithm}
+\begin{proposition}[State-dependent arc elimination]\label{prop:rha can gen}
+    If for a candidate service arc $(i,j)$, there exits a period $s\in[i,j)$ such that
+    \[
+    N^k_h(s)=0
+    \]
+    then arc $(i,j)$ cannot be selected in horizon $h$.
+\end{proposition}
+Proposition \ref{prop:rha can gen} implies that if the state-dependent available fleet capacity $N^k_h(s) = 0$ at a specific epoch $s \in \mathcal{T}_h$, all physical manual vehicles in city $k$ have been fully occupied by previously committed, inherited trips. Because the remaining fleet capacity boundary is completely exhausted, there exists no theoretical possibility for any new candidate arc $(i,j)$ spanning across epoch $s$ to be admitted into the feasible solution space. This logical reduction applies analogously to the automated fleet $\widehat{N}_h(t)$ and the direct-shipping fleet dynamics.
+
+Next, we exploit Proposition \ref{prop:rha can gen} to implement the formal rolling-horizon-aware candidate generation procedure outlined in Algorithm \ref{alg:rha can gen}. Within each rolling horizon $h$, historical tracking arcs that maintain active temporal overlap with the current decision window---such as ongoing, uncompleted delivery tasks---are consolidated into the committed schedule sets $\Omega_h^{k\dagger}$, $\widehat{\Omega}_h^\dagger$, and $\widetilde{\Omega}_h^\dagger$. The parameters $\bar{x}_{ij}^{k\dagger}$, $\bar{y}_{ij}^{\dagger}$, and $\bar{w}_{ij}^{\dagger}$ encapsulate the realized historical dispatching profile for all $(i,j) \in \Omega$. By aggregating these historical occupation states, we dynamically derive the net time-varying available vehicle supply $N_h^k(t)$ and $\widehat{N}_h(t)$ for any time $t \in \mathcal{T}_h$, thereby enabling accurate mathematical pruning during the preprocessing stage.
+\begin{proposition}[Sufficiency of the extended completion window]
+Suppose that the extension length $L$ satisfies
+\[
+L\ge
+\max_{\dagger\in\{+,-\}}
+\left\{
+\left\lceil
+\frac{f^{\eta^\dagger}(M)+f^{\bar\eta^\dagger}(M)+\tau}{t_0}
+\right\rceil,
+\left\lceil
+\frac{\widetilde f(M)}{t_0}
+\right\rceil
+\right\}.
+\]
+Then any delivery option initiated within $\mathcal T_h^{\mathrm{start}}$ can complete within $\mathcal T_h^{\mathrm{ext}}$, provided that it satisfies the order time window and vehicle-availability constraints.
+\end{proposition}
+Algorithm \ref{alg:rha can gen} presents the systematic solution procedures designed to eliminate all structurally infeasible arcs. Specifically, Lines 2--3 quantify the historical capacity displacement by calculating the committed intra-city and direct-shipping vehicle occupations, denoted as $B_{h,\mathrm{loc}}^k(t)$ and $B_{h,\mathrm{dir}}^k(t)$, respectively. On this basis, the time-varying state-dependent manual fleet availability, $N^k_h(t)$, is dynamically updated in Line 4. A parallel estimation for the intercity automated fleet capacity is executed in Line 5. Following these capacity calibrations, the pruned service arc sets $\mathcal{A}_h^k$, $\widehat{\mathcal{A}}_h$, and $\widetilde{\mathcal{A}}_h^{\dagger}$ are generated in Lines 6--8. Finally, based on the intersections of these newly generated paths and inherited historical schedules, sets $\mathcal{S}_h^k(t)$, $\widehat{\mathcal{S}}_h(t)$, and $\widetilde{\mathcal{S}}_h^k(t)$ are constructed in Lines 9--11 to operationalize the rolling horizon framework.
+
+
+\subsection{Solution Construction and Priority-Based Order Ranking}
+\label{subsec:sol construction PBOR}
+
+Having identified and eliminated redundant arcs, we develop a systematic solution construction methodology to efficiently identify feasible solutions within the rolling horizon framework. Although order fulfillment trajectories inherently depend on historical dispatching states, executing fundamental screening rules can accelerate the solution search process. In this subsection, we first propose a dynamic priority ranking mechanism to evaluate the operational urgency of unserved orders. Second, we introduce a matching heuristic to effectively assign available vehicle capacity to candidate orders.
+
+Each multi-commodity order $l \in \mathcal{D}_h$ is characterized by a set of deterministic parameters: release time $s_l$, deadline $e_l$, unserved penalty $\delta_l$, and demand volume $d_l$. However, the actual localized service duration cannot be directly derived from these parameters because intra-city service times remain highly state-dependent; specifically, they vary with the dynamic congestion parameter $\lambda$, which represents the total aggregate cargo volume carried by a vehicle. Consequently, the true service duration must be tractably estimated. Estimating this duration is critical because it directly reveals whether an order can be successfully fulfilled before its hard deadline $e_l$, thereby laying the foundation for constructing a mathematically feasible assignment.
+
+To formalize this estimation, we leverage the dynamically pruned candidate arc sets $\mathcal{A}_h^k$, $\widehat{\mathcal{A}}_h$, and $\widetilde{\mathcal{A}}_h^{\dagger}$ generated in the preprocessing phase. These sets provide a rigorous mathematical boundary to derive the estimated shortest service time—or more formally, the tight lower bound of fulfillment latency. For the transshipment pathway, if we identify a sequence of time-expanded arcs satisfying $j_1 \le i_2$, $j_2 \le i_3$, and $j_3 \le e_l$, where $(i_1,j_1) \in \mathcal{A}_h^k$, $(i_2,j_2) \in \widehat{\mathcal{A}}_h$, and $(i_3,j_3) \in \widetilde{\mathcal{A}}_h^{\dagger}$, the lower bound of transshipment service time can be explicitly derived as $\underline{p_{lh}^{\mathrm{tr}}} = j_3 - t_h$. Accounting for both routing options, the global lower bound of service duration for order $l$ at epoch $t_h$ is defined as:
+\begin{equation}
+\underline{p}_l^h = \min \left\{ \underline{p}_{l}^{\mathrm{tr},h}, \ \underline{p}_{l}^{\mathrm{dir},h} \right\}
+\end{equation}
+where $\underline{p}_{l}^{\mathrm{dir},h} = \min \{j - t_h : (i,j) \in \widetilde{\mathcal{A}}_h^{\dagger}, j \le e_l\}$.
+
+Conceptually, while incorporating direct-shipping capabilities increases the multi-stage optimization complexity, it serves as a critical buffer against network-wide congestion. To establish an entry criterion for the dispatching heuristic (akin to the allocation rules utilized in strict priority scheduling), we formulate a time-dependent scheduling metric. Specifically, the estimated operational slack time is defined as $e_l - t_h - \underline{p_{l}^h}$, which quantifies the residual temporal buffer available if service commences immediately at the current epoch. By compounding this temporal urgency with the economic non-delivery penalty $\delta_l$, we define the generalized priority index $\pi_l$ for each unserved order $l$ as follows:
+\begin{equation}
+\label{eq:pri_ind}
+\pi_l = \frac{e_l - t_h - \underline{p}_l^h}{\delta_l d_l^{\text{rem}} + \epsilon}
+\end{equation}
+where $\epsilon > 0$ is a sufficiently small positive scalar introduced to prevent zero-division. Under this specification, a smaller priority index indicates higher operational urgency and economic importance, dictating that the order must be prioritized in the subsequent vehicle assignment phase.
+
+\begin{algorithm}[!htbp]
+\caption{Dynamic BHH-aware priority construction heuristic}
+\label{alg:dynamic_bhh_priority}
+\begin{algorithmic}[1]
+
+\Statex \textbf{Input:} $t_h$, $\mathcal D_h$, $\mathcal A_h^k$, $\widehat{\mathcal A}_h$,
+$\widetilde{\mathcal A}_h^\dagger$, $N_h^k(t)$, $\widehat N_h(t)$,
+$f^k(\cdot)$, $\widetilde f(\cdot)$, $\widehat M$, $\delta_l$, $d_l$.
+
+\Statex \textbf{Output:}
+$(\bar x,\bar y,\bar w,\bar g,\bar{\widehat g},\bar{\widetilde g},\bar z)$.
+
+\State
+$\bar x,\bar y,\bar w,\bar g,\bar{\widehat g},\bar{\widetilde g},\bar z\leftarrow 0$,
+$d_l^{\mathrm{rem}}\leftarrow d_l,\ \forall l\in\mathcal D_h$,
+$\mathcal U\leftarrow\mathcal D_h$.
+
+\State
+$R_{ij}^k\leftarrow 0$,
+$\widehat R_{ij}\leftarrow 0$,
+$\widetilde R_{ij}^{\dagger}\leftarrow 0$,
+$A_h^k(s)\leftarrow N_h^k(s)$,
+$\widehat A_h(s)\leftarrow \widehat N_h(s)$,
+$\forall k,s$.
+
+\While{$\mathcal U\neq\emptyset$}
+
+    \State
+    $\underline p_l^h
+    =
+    \min\{\underline p_l^{\mathrm{tr},h},\underline p_l^{\mathrm{dir},h}\}$,
+    $\mathrm{slack}_l^h=e_l-t_h-\underline p_l^h$,
+    $\pi_l=
+    \dfrac{\mathrm{slack}_l^h}{\delta_l d_l^{\mathrm{rem}}+\epsilon}$,
+    store $o_l^h$,
+    $\forall l\in\mathcal U$.
+
+    \State
+    $\mathcal I
+    \leftarrow
+    \{l\in\mathcal U:
+    \underline p_l^h=\infty
+    \text{ or }
+    \mathrm{slack}_l^h<0\}$,
+    $\bar z_l\leftarrow d_l^{\mathrm{rem}},\ \forall l\in\mathcal I$,
+    $\mathcal U\leftarrow\mathcal U\setminus\mathcal I$.
+
+    \If{$\mathcal U=\emptyset$} \textbf{break}
+    \EndIf
+
+    \State
+    $l^*\leftarrow \arg\min_{l\in\mathcal U}\pi_l$,
+    $o^*\leftarrow o_{l^*}^h$.
+
+    \If{$o^*=((i_1,j_1),(i_2,j_2),(i_3,j_3))$}
+
+        \State
+        $C_1=(f^{\eta^\dagger})^{-1}((j_1-i_1)t_0)$,
+        $\widehat C=\widehat M$,
+        $C_3=(f^{\bar\eta^\dagger})^{-1}((j_3-i_3)t_0)$.
+
+        \State
+        $V_1\leftarrow \min_{s\in[i_1,j_1)}A_h^{\eta^\dagger}(s)$,
+        $\widehat V\leftarrow \min_{s\in[i_2,j_2)}\widehat A_h(s)$,
+        $V_3\leftarrow \min_{s\in[i_3,j_3)}A_h^{\bar\eta^\dagger}(s)$.
+
+        \State
+        $Q^{\max}
+        \leftarrow
+        \min\{
+        d_{l^*}^{\mathrm{rem}},
+        R_{i_1j_1}^{\eta^\dagger}+V_1C_1,
+        \widehat R_{i_2j_2}+\widehat V\widehat C,
+        R_{i_3j_3}^{\bar\eta^\dagger}+V_3C_3
+        \}$.
+
+        \If{$Q^{\max}=0$}
+            $\bar z_{l^*}\leftarrow d_{l^*}^{\mathrm{rem}}$,
+            $\mathcal U\leftarrow\mathcal U\setminus\{l^*\}$.
+        \Else
+            $q_l\leftarrow Q^{\max}$.
+
+            \State
+            $\Delta x_1
+            =
+            \left\lceil
+            \dfrac{(q_l-R_{i_1j_1}^{\eta^\dagger})_+}{C_1}
+            \right\rceil$,
+            $\Delta y
+            =
+            \left\lceil
+            \dfrac{(q_l-\widehat R_{i_2j_2})_+}{\widehat C}
+            \right\rceil$,
+            $\Delta x_3
+            =
+            \left\lceil
+            \dfrac{(q_l-R_{i_3j_3}^{\bar\eta^\dagger})_+}{C_3}
+            \right\rceil$.
+
+            \State
+            $\bar x_{i_1j_1}^{\eta^\dagger\dagger}
+            \leftarrow
+            \bar x_{i_1j_1}^{\eta^\dagger\dagger}+\Delta x_1$,
+            $\bar y_{i_2j_2}^{\dagger}
+            \leftarrow
+            \bar y_{i_2j_2}^{\dagger}+\Delta y$,
+            $\bar x_{i_3j_3}^{\bar\eta^\dagger\dagger}
+            \leftarrow
+            \bar x_{i_3j_3}^{\bar\eta^\dagger\dagger}+\Delta x_3$.
+
+            \State
+            $\bar g_{i_1j_1}^{l^*}
+            \leftarrow
+            \bar g_{i_1j_1}^{l^*}+q_l$,
+            $\bar{\widehat g}_{i_2j_2}^{l^*}
+            \leftarrow
+            \bar{\widehat g}_{i_2j_2}^{l^*}+q_l$,
+            $\bar g_{i_3j_3}^{l^*}
+            \leftarrow
+            \bar g_{i_3j_3}^{l^*}+q_l$.
+
+            \State
+            $R_{i_1j_1}^{\eta^\dagger}
+            \leftarrow
+            R_{i_1j_1}^{\eta^\dagger}+\Delta x_1C_1-q_l$,
+            $\widehat R_{i_2j_2}
+            \leftarrow
+            \widehat R_{i_2j_2}+\Delta y\widehat C-q_l$,
+            $R_{i_3j_3}^{\bar\eta^\dagger}
+            \leftarrow
+            R_{i_3j_3}^{\bar\eta^\dagger}+\Delta x_3C_3-q_l$.
+
+            \State
+            $A_h^{\eta^\dagger}(s)
+            \leftarrow
+            A_h^{\eta^\dagger}(s)-\Delta x_1$,
+            $\forall s\in[i_1,j_1)$;
+            $\widehat A_h(s)
+            \leftarrow
+            \widehat A_h(s)-\Delta y$,
+            $\forall s\in[i_2,j_2)$;
+            $A_h^{\bar\eta^\dagger}(s)
+            \leftarrow
+            A_h^{\bar\eta^\dagger}(s)-\Delta x_3$,
+            $\forall s\in[i_3,j_3)$.
+
+            \State
+            $d_{l^*}^{\mathrm{rem}}
+            \leftarrow
+            d_{l^*}^{\mathrm{rem}}-q_l$.
+        \EndIf
+
+    \ElsIf{$o^*=(i,j)$}
+
+        \State
+        $\widetilde C=(\widetilde f)^{-1}((j-i)t_0)$,
+        $\widetilde V\leftarrow \min_{s\in[i,j)}A_h^{\eta^\dagger}(s)$.
+
+        \State
+        $Q^{\max}
+        \leftarrow
+        \min\{
+        d_{l^*}^{\mathrm{rem}},
+        \widetilde R_{ij}^{\dagger}
+        +\widetilde V\widetilde C
+        \}$.
+
+        \If{$Q^{\max}=0$}
+            $\bar z_{l^*}\leftarrow d_{l^*}^{\mathrm{rem}}$,
+            $\mathcal U\leftarrow\mathcal U\setminus\{l^*\}$.
+        \Else
+            \State
+            $q_l\leftarrow Q^{\max}$,
+            $\Delta w
+            =
+            \left\lceil
+            \dfrac{(q_l-\widetilde R_{ij}^{\dagger})_+}{\widetilde C}
+            \right\rceil$.
+
+            \State
+            $\bar w_{ij}^{\dagger}
+            \leftarrow
+            \bar w_{ij}^{\dagger}+\Delta w$,
+            $\bar{\widetilde g}_{ij}^{l^*}
+            \leftarrow
+            \bar{\widetilde g}_{ij}^{l^*}+q_l$.
+
+            \State
+            $\widetilde R_{ij}^{\dagger}
+            \leftarrow
+            \widetilde R_{ij}^{\dagger}+\Delta w\widetilde C-q_l$,
+            $A_h^{\eta^\dagger}(s)
+            \leftarrow
+            A_h^{\eta^\dagger}(s)-\Delta w$,
+            $\forall s\in[i,j)$.
+
+            \State
+            $d_{l^*}^{\mathrm{rem}}
+            \leftarrow
+            d_{l^*}^{\mathrm{rem}}-q_l$.
+        \EndIf
+
+    \EndIf
+
+    \If{$d_{l^*}^{\mathrm{rem}}=0$}
+        $\mathcal U\leftarrow\mathcal U\setminus\{l^*\}$.
+    \EndIf
+
+\EndWhile
+
+\State
+$\bar z_l\leftarrow d_l^{\mathrm{rem}},\quad \forall l\in\mathcal D_h$.
+
+\State \Return
+$(\bar x,\bar y,\bar w,\bar g,\bar{\widehat g},\bar{\widetilde g},\bar z)$.
+
+\end{algorithmic}
+\end{algorithm}
+Algorithm~\ref{alg:dynamic_bhh_priority} constructs an initial feasible solution for the reduced arc-based MILP. The algorithm follows a dynamic priority rule inspired by scheduling algorithms, but adapts it to the load-dependent structure of the proposed transportation model. Specifically, the estimated minimum required time $\underline p_l^h$ is used to measure the temporal urgency of each remaining order. After each dispatching decision, the residual arc capacities and the period-level vehicle availability profiles are updated; therefore, $\underline p_l^h$, the estimated slack, and the priority index $\pi_l$ are recomputed dynamically for all unprocessed orders. This avoids relying on a static order ranking that may become invalid once earlier assignments consume critical vehicle resources.
+
+A key feature of the heuristic is that it does not treat the urban service time as a fixed processing time. Instead, for each selected service arc $(i,j)$, the available load capacity is derived from the BHH approximation. In particular, the capacity of a local manual-service arc is computed as $(f^k)^{-1}((j-i)t_0)$, which represents the maximum volume that one vehicle can serve within the time interval $(i,j)$. The number of vehicles that can still be added to the arc is determined by the minimum remaining vehicle availability over all periods covered by the arc. Hence, the algorithm maintains period-level availability profiles $A_h^k(s)$ and $\widehat A_h(s)$, so that overlapping arcs cannot repeatedly use the same vehicles.
+
+For the selected order $l^*$ and its associated option $o^*$, the value $Q^{\max}$ gives the maximum assignable volume under the current residual capacities and remaining fleet availability. Since the original arc-flow formulation allows an order class to be split across multiple arcs, the heuristic assigns $q_l\le d_l^{\mathrm{rem}}$ rather than forcing the entire remaining demand to be served at once. After each assignment, the corresponding vehicle variables, flow variables, residual capacities, and remaining demand are updated. If an order cannot be served further under the current candidate arcs, its remaining demand is assigned to the unserved variable. Through this dynamic capacity-accounting procedure, the heuristic produces a feasible initial solution that is consistent with the BHH-based capacity constraints and the rolling-horizon fleet-availability constraints.
+
+\printbibliography
+
+\end{document}

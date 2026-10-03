@@ -1,5 +1,21 @@
 # DRL_CO：强化学习 + 组合优化调度
 
+## 本地 React 实验平台
+
+新增本地网页与统一实验核心：先冻结数据，再运行单层匹配、原有 Candidate SAC 或 BHH 模型；支持参数扫描、持久化队列、结果比较、状态回放和复现包。平台不改变这些模型各自的研究假设，也不代表强化学习已经优于优化基线。
+
+首次安装需要 Python 引导环境、Node.js（本次验证 24.18.0）和可用的 Gurobi 10 许可证：
+
+```powershell
+.\scripts\setup.ps1
+.\scripts\doctor.ps1
+.\scripts\start.ps1
+```
+
+打开 <http://127.0.0.1:8765>。macOS/Linux 对应 `bash scripts/setup.sh`、`bash scripts/doctor.sh`、`bash scripts/start.sh`；原生 macOS 尚未验证。平台采用独立 Python 3.11 环境与锁文件，不复用下文的历史 conda 环境。
+
+详细用法、兼容矩阵及已知限制见 [平台说明](docs/EXPERIMENT_PLATFORM.md)，实际测试结果及实施范围见 [验证报告](docs/PLATFORM_VALIDATION.md)。
+
 本项目研究动态订单场景中的车辆调度：上层策略为每个订单选择“虚拟出发城市”，下层 Gurobi 模型在硬约束下完成车辆—订单联合匹配。仓库从一个无法验证收敛的本科实验，重构成了可测试、可复现的候选共享离散 SAC 基线。
 
 当前结论不是“RL 已经击败优化算法”，而是：原模型首先因为动作没有真正进入优化器而不可能学习；修复数据流与 SAC 后能够稳定学习；进一步改成置换等变的候选共享策略后，跨图表现接近供给启发式和一步 MILP；在车少单多场景中优于短视 MILP，但尚未稳定超过结构化的 supply 基线。
@@ -59,7 +75,7 @@ python -m model.mt_prototype
 
 ## 快速开始
 
-项目使用 Python 3.9 的 `pavane` conda 环境验证。Gurobi 需要本机可用许可证。
+以下是旧实验路线的历史启动方法，曾使用 Python 3.9 的 `pavane` conda 环境验证。新平台请使用上方的项目独立环境。Gurobi 需要本机可用许可证。
 
 ```powershell
 conda activate pavane

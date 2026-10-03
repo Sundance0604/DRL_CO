@@ -1,0 +1,1 @@
+{"additionalProperties":false,"properties":{"checkpoint_run":{"pattern":"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$","title":"Checkpoint Run","type":"string"},"multiplier":{"default":1,"minimum":0,"title":"Multiplier","type":"number"}},"required":["checkpoint_run"],"title":"LearnedParameters","type":"object"}

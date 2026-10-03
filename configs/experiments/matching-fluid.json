@@ -1,0 +1,1 @@
+{"name":"Matching fluid dual smoke","dataset":{"dataset_id":"matching-demo","revision":"latest","split":"test"},"model":{"id":"single_level_matching","parameters":{}},"controller":{"id":"myopic"},"value_function":{"id":"fluid_dual","parameters":{"recompute":true,"expected_orders_per_step":2}}}

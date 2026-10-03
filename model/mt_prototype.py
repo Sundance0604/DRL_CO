@@ -25,7 +25,8 @@ TIE = 1.0                                     # solver-only tie-break against ne
 
 class Net:
     """Highway graph with a consistent family of shortest paths (Assumption 3)."""
-    def __init__(self, G, seed):
+    def __init__(self, G, seed, speed=SPEED):
+        self.speed = speed
         rng = random.Random(seed)
         self.H = nx.Graph()
         for u, v, w in G.edges(data="weight"):
@@ -42,7 +43,7 @@ class Net:
                     assert p[i:j + 1] == self.path[p[i], p[j]]
 
     def lt(self, a, b):
-        return max(1, math.ceil(self.H[a][b]["weight"] / SPEED))
+        return max(1, math.ceil(self.H[a][b]["weight"] / self.speed))
 
     def arcs(self, u, v):
         p = self.path[u, v]
@@ -64,14 +65,32 @@ class Veh:
         return c
 
 
-def build_and_solve(t, net, pool, vehs, hops, c_empty, repos, flat_v=None, vfun=None):
+class DecisionPlan(tuple):
+    """Backward-compatible six-field result with a simulator revision guard."""
+    def __new__(cls, result, period, revision):
+        obj = super().__new__(cls, result)
+        obj.period, obj.revision = period, revision
+        return obj
+
+
+def build_and_solve(t, net, pool, vehs, hops, c_empty, repos, flat_v=None, vfun=None, parameters=None,
+                    solver_parameters=None, solve_info=None):
     """Build (M_t), or (M^V_t) when vfun(period, hub) is given.
     Returns (profit without value terms, objective, decisions, ...)."""
+    parameters = parameters or {}
+    Q = parameters.get("capacity", 7)
+    C_LOADED = parameters.get("loaded_cost", 10.0)
+    C_WAIT = parameters.get("waiting_cost", 0.0)
+    PHI = parameters.get("expiry_cost", 300.0)
+    DMAX = parameters.get("max_delay", 3)
+    TIE = parameters.get("tie_break", 1.0)
     m = gp.Model(); m.Params.OutputFlag = 0; m.Params.Threads = 1
     # The flat-value invariant below compares two objective values exactly up to
     # numerical precision. Gurobi's default relative MIP gap can otherwise stop
     # a few objective units early after the large constant is added.
     m.Params.MIPGap = 0.0
+    for key, value in (solver_parameters or {}).items():
+        m.setParam({"time_limit_seconds": "TimeLimit", "mip_gap": "MIPGap", "threads": "Threads", "seed": "Seed"}[key], value)
     dec = [k for k in vehs if k.phase == "idle"
            or (k.phase == "trip" and k.dead == 0 and (k.arrive == t or k.hold is not None))]
     routes, y, x, z, w = {}, {}, {}, {}, {}
@@ -173,16 +192,28 @@ def build_and_solve(t, net, pool, vehs, hops, c_empty, repos, flat_v=None, vfun=
     tie = TIE * gp.quicksum(routes[kid][ri]["delay"] * var for (kid, ri), var in y.items())
     m.setObjective(profit + value - tie, GRB.MAXIMIZE)
     m.optimize()
-    assert m.Status == GRB.OPTIMAL
+    status = ("OPTIMAL" if m.Status == GRB.OPTIMAL else
+              "INFEASIBLE" if m.Status == GRB.INFEASIBLE else
+              "UNBOUNDED" if m.Status in (GRB.UNBOUNDED, GRB.INF_OR_UNBD) else
+              "FEASIBLE_LIMIT" if m.SolCount > 0 else "NO_SOLUTION_LIMIT")
+    if solve_info is not None:
+        solve_info.update(status=status, runtime=m.Runtime, incumbent=m.ObjVal if m.SolCount else None,
+                          bound=m.ObjBound if math.isfinite(m.ObjBound) else None,
+                          gap=m.MIPGap if m.SolCount and math.isfinite(m.MIPGap) else None)
+    if not m.SolCount:
+        m.dispose()
+        raise RuntimeError(f"solver returned {status}; no incumbent to commit")
     sol = dict(x=[key for key, var in x.items() if var.X > 0.5],
                y=[key for key, var in y.items() if var.X > 0.5],
                z=[key for key, var in z.items() if var.X > 0.5])
-    return profit.getValue(), m.ObjVal, sol, routes, exp, len(dec)
+    result = profit.getValue(), m.ObjVal, sol, routes, exp, len(dec)
+    m.dispose()
+    return result
 
 
-def depart(k, t, net):
+def depart(k, t, net, capacity=Q):
     if k.phase == "trip" and k.dead == 0:
-        assert sum(k.orders[i].passenger for i in k.onboard) <= Q, "seat limit violated on a link"
+        assert sum(k.orders[i].passenger for i in k.onboard) <= capacity, "seat limit violated on a link"
     k.arrive = t + net.lt(k.loc, k.route[0])
 
 
@@ -207,7 +238,9 @@ def simulate(seed, nv, ops, hops, c_empty, repos=False, check_flat=False, horizo
 
 class Sim:
     """State of the rolling procedure (Algorithm 1): vehicles, order pool, clock and profit."""
-    def __init__(self, net, hubs, horizon):
+    def __init__(self, net, hubs, horizon, parameters=None, solver_parameters=None):
+        self.revision = 0
+        self.parameters, self.solver_parameters = parameters or {}, solver_parameters or {}
         self.net, self.T, self.t, self.J = net, horizon, 0, 0.0
         self.vehs = [Veh(i, hub) for i, hub in enumerate(hubs)]
         self.pool = {}
@@ -217,11 +250,14 @@ class Sim:
     def clone(self):
         c = Sim.__new__(Sim)
         c.net, c.T, c.t, c.J = self.net, self.T, self.t, self.J
+        c.revision = self.revision
+        c.parameters, c.solver_parameters = dict(self.parameters), dict(self.solver_parameters)
         c.vehs, c.pool, c.S = [v.copy() for v in self.vehs], dict(self.pool), dict(self.S)
         return c
 
     def begin_period(self, new_orders):
         """Vehicles that reach a hub at the start of period t; then the newly booked orders join the pool."""
+        self.revision += 1
         t, net, S = self.t, self.net, self.S
         for k in self.vehs:
             if k.arrive != t:
@@ -230,11 +266,11 @@ class Sim:
             if k.dead > 0:
                 k.dead -= 1
             if k.phase == "repos":
-                if k.route: depart(k, t, net)
+                if k.route: depart(k, t, net, self.parameters.get("capacity", Q))
                 else: k.phase, k.arrive = "idle", None
                 continue
             if k.dead > 0:                                 # still driving empty to the pickup hub
-                depart(k, t, net); continue
+                depart(k, t, net, self.parameters.get("capacity", Q)); continue
             for oid in [i for i in k.onboard if k.orders[i].destination == k.loc]:
                 assert t <= k.orders[oid].end_time, "late delivery"
                 k.onboard.discard(oid); del k.orders[oid]; S["delivered"] += 1
@@ -251,11 +287,28 @@ class Sim:
     def decide(self, hops, c_empty, repos=False, vfun=None, check_flat=False):
         """Solve the period model, apply the decisions, cancel expired orders, move the clock."""
         t, net, pool, vehs, S = self.t, self.net, self.pool, self.vehs, self.S
-        profit, obj, sol, routes, exp, ndec = build_and_solve(t, net, pool, vehs, hops, c_empty, repos, vfun=vfun)
+        plan = self.solve_plan(hops, c_empty, repos, vfun)
+        profit, obj, sol, routes, exp, ndec = plan
         if check_flat:                                     # flat value function must not change the optimum
             assert vfun is None
             _, obj_flat, _, _, _, _ = build_and_solve(t, net, pool, vehs, hops, c_empty, repos, flat_v=1234.5)
             assert abs(obj_flat - obj - 1234.5 * ndec) < 1e-4 * max(1.0, abs(obj))
+        return self.commit_plan(plan)
+
+    def solve_plan(self, hops, c_empty, repos=False, vfun=None, solve_info=None):
+        """Pure decision step: no orders, vehicles, clock or accounting are changed."""
+        result = build_and_solve(self.t, self.net, self.pool, self.vehs, hops, c_empty, repos,
+                               vfun=vfun, parameters=self.parameters,
+                               solver_parameters=self.solver_parameters, solve_info=solve_info)
+        return DecisionPlan(result, self.t, self.revision)
+
+    def commit_plan(self, plan):
+        """Commit a solved incumbent once. Platform additionally records its state hash."""
+        if not isinstance(plan, DecisionPlan) or plan.period != self.t or plan.revision != self.revision:
+            raise RuntimeError("stale or already committed decision plan")
+        self.revision += 1
+        profit, obj, sol, routes, exp, ndec = plan
+        t, net, pool, vehs, S = self.t, self.net, self.pool, self.vehs, self.S
         self.J += profit
         chosen = {kid: routes[kid][ri] for kid, ri in sol["y"]}
         for oid, kid in sol["x"]:
@@ -287,12 +340,12 @@ class Sim:
                 if o.departure == k.loc and oid not in k.onboard:
                     assert t >= o.start_time, "boarded before the order was ready"
                     k.onboard.add(oid)
-            depart(k, t, net)
+            depart(k, t, net, self.parameters.get("capacity", Q))
         for kid, j in sol["z"]:
             k = vehs[kid]
             k.phase, k.route, k.dead = "repos", net.path[k.loc, j][1:], 0
             S["repos"] += 1
-            depart(k, t, net)
+            depart(k, t, net, self.parameters.get("capacity", Q))
         for oid in exp:
             if oid in pool:
                 del pool[oid]; S["cancelled"] += 1

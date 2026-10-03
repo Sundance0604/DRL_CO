@@ -1,0 +1,1 @@
+{"name":"Matching perfect-information LP bound","dataset":{"dataset_id":"matching-demo","revision":"latest","split":"test"},"model":{"id":"single_level_matching"},"controller":{"id":"oracle_lp"},"evaluation":{"information_set":"oracle"}}
