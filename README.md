@@ -4,6 +4,17 @@
 
 当前结论不是“RL 已经击败优化算法”，而是：原模型首先因为动作没有真正进入优化器而不可能学习；修复数据流与 SAC 后能够稳定学习；进一步改成置换等变的候选共享策略后，跨图表现接近供给启发式和一步 MILP；在车少单多场景中优于短视 MILP，但尚未稳定超过结构化的 supply 基线。
 
+## 单层匹配模型
+
+`model/` 提供一条与现有 SAC 实验并行的研究路线：把“虚拟出发城市 + 下层匹配”改成每期一次求解的单层 MILP，显式计入车辆前往真实出发枢纽的时间和空驶成本，并加入首段 HV 成批接驳、车辆位置价值、完全信息/流体上界及在线 rollout。数学说明见 [doc/main_v2.tex](doc/main_v2.tex)，代码包说明见 [docs/SINGLE_LEVEL_MODEL.md](docs/SINGLE_LEVEL_MODEL.md)。
+
+这套代码仍是研究原型，成本、城市几何和需求均未标定，且存在时域末端记账等已知局限。完整代码审阅、修改原因、风险与测试证据见 [docs/SINGLE_LEVEL_MODEL_REVIEW.md](docs/SINGLE_LEVEL_MODEL_REVIEW.md)。最小验证命令：
+
+```powershell
+python -m pytest -q
+python -m model.mt_prototype
+```
+
 ## 原模型为何不收敛，后来如何收敛
 
 最致命的问题不是超参数，而是因果链断裂。旧 notebook 生成了 SAC 动作，却没有在 Gurobi 建模前可靠地写回 `order.virtual_departure`；即使调用旧 `test_step`，城市中的订单桶也未刷新。因此奖励几乎与动作无关，critic 可以把 loss 拟合到很小，actor 却没有可学信号。
