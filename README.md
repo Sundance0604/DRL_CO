@@ -1,10 +1,94 @@
-# DRL_CO：强化学习 + 组合优化调度
+# DRL_CO · 旧 DRL/SAC 研究基线
+
+当前分支：`main`。文档更新：2026-10-03。
+
+## 本分支的作用与边界
+
+本分支保留旧研究路线：上层离散 SAC 为订单选择虚拟出发城市，下层 Gurobi 完成车辆—订单联合匹配。适合阅读候选共享 SAC、调度环境、下层优化，以及历史训练/评估/消融结果。
+
+本分支的真正源代码仍在 `drl_co/`，实验入口在 `experiments/`。它们在本分支不是平台兼容 shim。
+
+**本分支不包含**：
+
+- `model/` 的 single-level 研究扩展。
+- BHH 平台模型、`model_families/` 三族独立包。
+- React 网页、FastAPI 实验平台、统一范围/间隔批实验及 single 论文分析。
+
+需要新平台请切换到 `react-experiment-platform`；需要单层研究原型请看 `single-level-dispatch-model`。本次 main 更新只修改 README，研究代码保持文档提交前的基线内容，不合并上述功能分支。
+
+## 三个分支的区别
+
+| 分支 | 用途 | 推荐场景 |
+|---|---|---|
+| [main](https://github.com/Sundance0604/DRL_CO/tree/main) | 旧 DRL/SAC 研究基线；调度环境、候选共享 SAC、下层匹配与历史训练评估 | 阅读或复现旧 RL 研究 |
+| [single-level-dispatch-model](https://github.com/Sundance0604/DRL_CO/tree/single-level-dispatch-model) | 单层匹配模型原型、上界、在线前瞻与审阅；保留旧 DRL/SAC 作对照 | 单独研究 single 原型及与旧模型的差异 |
+| [react-experiment-platform](https://github.com/Sundance0604/DRL_CO/tree/react-experiment-platform) | 当前本地 React 实验平台；三族独立模型包、统一批实验、single 记录与论文分析 | 新实验、参数扫描、逐 t 分析与论文图导出 |
+
+分支是代码版本路线，不是模型族：平台分支内同时有 legacy、BHH、single 三族。其他分支没有平台三族拆包结构；不能照搬平台的路径或启动命令。
+
+
+## 本分支目录导航
+
+```text
+仓库根目录/
+├─ drl_co/                  旧 DRL/SAC 真正实现
+│  ├─ domain/               城市、图、订单、车辆
+│  ├─ environment/          Gym 调度环境与动作落地
+│  ├─ optimization/         Gurobi 下层车辆—订单匹配
+│  ├─ rl/                   Candidate SAC、discrete SAC、fixed-ID 和特征
+│  ├─ simulation/           场景生成、状态推进、仿真工具
+│  ├─ data_io.py            样例读取与旧 pickle 兼容
+│  └─ paths.py              路径辅助
+├─ experiments/
+│  ├─ training/             candidate/fixed-ID 训练入口
+│  ├─ evaluation/           held-out、压力、Q-MILP、候选剪枝等评估
+│  ├─ benchmarks/           多随机种子基准入口
+│  ├─ analysis/             旧研究统计/绘图脚本
+│  └─ diagnose.py           诊断入口
+├─ docs/                    旧研究诊断与完整实验报告
+├─ data/                    小型样例场景
+├─ results/                 Git 保存的精简历史 CSV/图片
+├─ tests/                   环境、SAC、场景、数据与等变性等回归
+├─ requirements.txt         本分支依赖清单
+└─ runs/                    运行后生成，默认忽略；不是已提交的源目录
+```
+
+| 想找什么 | 文件 |
+|---|---|
+| 候选共享 SAC | [drl_co/rl/candidate_sac.py](drl_co/rl/candidate_sac.py) |
+| masked discrete SAC | [drl_co/rl/discrete_sac.py](drl_co/rl/discrete_sac.py) |
+| fixed-ID 对照 | [drl_co/rl/fixed_id_sac.py](drl_co/rl/fixed_id_sac.py) |
+| 策略特征 | [drl_co/rl/features.py](drl_co/rl/features.py) |
+| 动作如何进入环境 | [drl_co/environment/dispatch.py](drl_co/environment/dispatch.py) |
+| 下层优化目标与硬约束 | [drl_co/optimization/lower_layer.py](drl_co/optimization/lower_layer.py) |
+| 场景与状态推进 | [scenarios.py](drl_co/simulation/scenarios.py)、[transitions.py](drl_co/simulation/transitions.py)、[tools.py](drl_co/simulation/tools.py) |
+| 训练入口 | [train_candidate.py](experiments/training/train_candidate.py)、[train_fixed_id.py](experiments/training/train_fixed_id.py) |
+| 多种子完整基准 | [experiments/benchmarks/candidate.py](experiments/benchmarks/candidate.py) |
+| 根因诊断/历史结果 | [DIAGNOSIS.md](docs/DIAGNOSIS.md)、[EXPERIMENT_REPORT.md](docs/EXPERIMENT_REPORT.md) |
+
+## 如何使用本分支
+
+使用本分支依赖与自己的 Gurobi 许可证。历史验收环境为 Python 3.9 的 `pavane` conda 环境，不应套用平台分支的 `uv.lock` 或 `scripts/start.ps1`（本分支没有这些文件）。
+
+```powershell
+python -m pip install -r requirements.txt
+python -m pytest -q
+python -m experiments.training.train_candidate --episodes 3 --horizon 8 --batch-size 32
+```
+
+训练命令会实际运行学习；大规模复现与输出选项见下方历史记录和实验报告。checkpoint/逐 episode 日志写入实验命令的输出目录（通常在被忽略的 `runs/`），`results/` 只是保存的历史汇总，不自动收集每次新运行。
+
+从其他本地工作副本推送 main 的 README 后，此处本地文件不会自动更新，需检查工作区后 fetch/pull；不要通过强制覆盖来“同步”。Git 分支不是本地三个同名文件夹。
+
+## 研究记录（历史基线，保留原 README）
+
+下列原有研究结论、性能数字和测试数保留作历史依据；本次仅做文档导航更新，没有重新训练或声称新增模型效果。它们不是 React 平台 v0.2 的验收记录。
 
 本项目研究动态订单场景中的车辆调度：上层策略为每个订单选择“虚拟出发城市”，下层 Gurobi 模型在硬约束下完成车辆—订单联合匹配。仓库从一个无法验证收敛的本科实验，重构成了可测试、可复现的候选共享离散 SAC 基线。
 
 当前结论不是“RL 已经击败优化算法”，而是：原模型首先因为动作没有真正进入优化器而不可能学习；修复数据流与 SAC 后能够稳定学习；进一步改成置换等变的候选共享策略后，跨图表现接近供给启发式和一步 MILP；在车少单多场景中优于短视 MILP，但尚未稳定超过结构化的 supply 基线。
 
-## 原模型为何不收敛，后来如何收敛
+### 原模型为何不收敛，后来如何收敛
 
 最致命的问题不是超参数，而是因果链断裂。旧 notebook 生成了 SAC 动作，却没有在 Gurobi 建模前可靠地写回 `order.virtual_departure`；即使调用旧 `test_step`，城市中的订单桶也未刷新。因此奖励几乎与动作无关，critic 可以把 loss 拟合到很小，actor 却没有可学信号。
 
@@ -21,7 +105,7 @@
 
 更完整的代码级审计见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)，全部实验和负结果见 [docs/EXPERIMENT_REPORT.md](docs/EXPERIMENT_REPORT.md)。
 
-## 主要实验结果
+### 主要实验结果
 
 所有关键比较使用独立随机图；多模型结果先在同一场景内平均，再做场景间配对，避免把同一场景重复计权。
 
@@ -46,7 +130,7 @@
 - 把 critic Q 直接加入 MILP 目标，在一组 extreme 场景有效，但压力课程后的 critic 在新场景退化，说明 Q 的跨订单标定不可靠。
 - actor top-k 候选剪枝能删除 30%–46% 的合法城市，却最多只减少 5.6% 的真实可行变量；当前小规模问题的瓶颈不是候选空间，因此没有继续接 rolling horizon。
 
-## 快速开始
+### 快速开始
 
 项目使用 Python 3.9 的 `pavane` conda 环境验证。Gurobi 需要本机可用许可证。
 
@@ -98,7 +182,7 @@ python -m experiments.evaluation.stress `
 
 默认会同时求解完整 MILP 以计算 oracle recall；真实部署计时应加 `--no-pruning-diagnostics`。
 
-## 反事实奖励
+### 反事实奖励
 
 对订单 `o` 使用实际策略和同一动作前状态下 supply 控制策略的差值：
 
@@ -109,7 +193,7 @@ r_o = \frac{u_o(a)-u_o(a^{supply})}{1000}
 
 `u_o` 是订单级匹配收益/等待或取消惩罚，`J` 是完整下层目标，`N_t` 是活跃订单数。该奖励降低了不同场景规模造成的绝对回报漂移，但现有七场景独立测试只显示小幅正向趋势，不能声称显著提升。
 
-## 仓库结构
+### 仓库结构
 
 | 路径 | 作用 |
 |---|---|
@@ -130,7 +214,7 @@ r_o = \frac{u_o(a)-u_o(a^{supply})}{1000}
 
 `runs/` 被 `.gitignore` 忽略，训练生成的 checkpoint、逐 episode 日志和 smoke 结果不进入仓库。历史 notebook、旧 PPO/MARL 草稿、数千个文本输出、临时 ILP/图片和大体积中间数据已经删除；如需考古仍可从 Git 历史找到。
 
-## 后续实验计划
+### 后续实验计划
 
 优先级从高到低：
 
@@ -141,7 +225,7 @@ r_o = \frac{u_o(a)-u_o(a^{supply})}{1000}
 5. **提高统计可信度。** 至少 10 个训练种子、30 个独立场景，报告场景配对 bootstrap 置信区间、wall-clock、Gurobi gap 与失败率。
 6. **重新定义胜负标准。** 同时比较目标值、求解时间和最坏场景表现；只有在预注册测试集上稳定超过 supply，才宣称 RL 带来净优势。
 
-## 已验证状态
+### 已验证状态
 
 - 环境：`conda env pavane`
 - 回归测试：`14 passed`
