@@ -1,0 +1,18 @@
+{
+  "baseline_config": "experiments/cfs_rho_endofday/configs/main.json",
+  "regions": ["california_corridor", "northeast_cluster", "western_multicluster"],
+  "order_levels": [20, 40, 80],
+  "fleet_levels": [3, 5, 8],
+  "pilot_seeds": [1000,1001,1002,1003,1004,1005,1006,1007,1008,1009],
+  "formal_seeds": [1010,1011,1012,1013,1014,1015,1016,1017,1018,1019,1020,1021,1022,1023,1024,1025,1026,1027,1028,1029,1030,1031,1032,1033,1034,1035,1036,1037,1038,1039],
+  "horizons": [2,4,8],
+  "max_parallel": 3,
+  "formal_rho_labels": ["rho0", "rho_mid", "rho_max"],
+  "selection_rule": "positive maximum pilot mean wide-own gain; Western minimum gain; tight N80/K3 and loose N20/K8 chosen closest to zero pilot gain; deduplicate",
+  "H_convention": "H decision periods [t,min(t+H,T)); preview additionally reveals (t,t+H], including an unservable boundary booking; H1 is one-step",
+  "information_note": "RH-Supply=known_supply is online; oracle_preview is not deployable and is not a global upper bound",
+  "placement_rule": "sum eligible CFS outbound WGT_FACTOR by hub; K3 top3; K5 sorted one-per-hub; K8 one-per-hub plus top3; tie by hub ID; no fleet RNG",
+  "full_preview_seeds": [1010,1011],
+  "bootstrap_seed": 20261005,
+  "bootstrap_replications": 10000
+}

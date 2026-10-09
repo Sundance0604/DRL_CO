@@ -1,0 +1,30 @@
+{
+  "parameters": {
+    "speed": 1,
+    "capacity": 2,
+    "loaded_cost": 2,
+    "empty_cost": 2,
+    "waiting_cost": 1,
+    "expiry_cost": 3,
+    "max_delay": 0,
+    "reposition": false
+  },
+  "solver": {"threads": 1, "mip_gap": 0, "seed": 0},
+  "action": {"hubs": ["A", "B", "C"], "scales": [20, 20, 20]},
+  "feature_scales": {"money": 100, "distance": 4, "time": 3, "load": 2},
+  "baseline": "smoke_mc_table.json",
+  "ppo": {
+    "updates": 2,
+    "episodes_per_update": 2,
+    "epochs": 2,
+    "minibatch_size": 6,
+    "hidden_size": 16,
+    "learning_rate": 0.0003,
+    "training_seed": 27,
+    "gamma": 1,
+    "gae_lambda": 0.95,
+    "reward_scale": 100,
+    "validation_every": 1,
+    "episode_timeout_seconds": 60
+  }
+}

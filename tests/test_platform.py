@@ -80,7 +80,7 @@ def test_strict_unknown_fields_and_nonfinite():
                 "name": "bad",
                 "dataset": {"dataset_id": "x", "revision": "a"},
                 "model": {"id": "single_level_matching"},
-                "controller": {"id": "rolling_horizon"},
+                "controller": {"id": "unregistered_window_planner"},
             }
         )
 

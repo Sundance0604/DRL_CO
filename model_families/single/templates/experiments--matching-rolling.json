@@ -1,0 +1,10 @@
+{
+  "name": "Single rolling horizon (known orders, joint route MILP)",
+  "dataset": {"dataset_id": "matching-demo", "revision": "latest", "split": "test"},
+  "model": {"id": "single_level_matching", "parameters": {"pickup_radius": 0}},
+  "controller": {"id": "rolling_horizon", "parameters": {
+    "planning_horizon": 6, "commit_periods": 1, "completion_extension": 6, "planner_id": "route_milp"
+  }},
+  "value_function": {"id": "zero"},
+  "evaluation": {"accounting_version": "single-realized-v1", "terminal_policy": "cooldown_realized"}
+}

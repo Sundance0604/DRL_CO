@@ -52,7 +52,7 @@ class Evaluation(Contract):
     accounting_version: str = (
         "legacy-assignment-v1"
     )
-    terminal_policy: Literal["report_pending", "drain_committed"] = "report_pending"
+    terminal_policy: Literal["report_pending", "drain_committed", "cooldown_realized"] = "report_pending"
     warmup_periods: Annotated[int, Field(ge=0)] = 0
     metrics: list[str] = Field(
         default_factory=lambda: ["operating_profit", "assigned", "delivered", "pending"]

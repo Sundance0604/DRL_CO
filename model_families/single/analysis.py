@@ -47,4 +47,5 @@ def extract(target, spec, manifest):
     return {"observations":result,"periods":periods,"states":states,
             "runs":[{"run_id":manifest["run_id"],"spec":spec,"manifest":manifest}],
             "datasets":{spec["dataset"]["revision"]:data},
-            "definitions":DEFINITIONS, "trace_schema":"single-trace-step/v2"}
+            "definitions":read_json(target/"metric-definitions.json") if (target/"metric-definitions.json").exists() else DEFINITIONS,
+            "trace_schema":"single-trace-step/v2"}

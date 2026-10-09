@@ -15,3 +15,23 @@ PROFILES = {
 "learned":{**BASE,"title":"Optional supervised hub-time value","equations":[r"V(h,t)=w^\top\phi(s,h,t),\quad \min_w\sum_i(w^\top\phi_i-\lambda_i^{\rm fluid})^2+\lambda_{\rm reg}\|w\|_2^2",*BASE["equations"]],"notes":BASE["notes"]+["Supervised fluid-dual regression, not reinforcement learning. Held-out data and a verified checkpoint are required for evaluation."]},
 "oracle_lp":{"title":"Perfect-information pooled LP bound","equations":[r"J_{\rm online}\leq U_{\rm LP}"],"notes":["Full-horizon time-expanded pooled-capacity relaxation. Bound feasibility relaxes vehicle indivisibility and route anchors; it is not an executed policy."]},
 "oracle_mip":{"title":"Perfect-information pooled MIP bound","equations":[r"J_{\rm online}\leq U_{\rm MIP}\leq U_{\rm LP}"],"notes":["Pooled network MIP still relaxes some vehicle-level route restrictions. No operational trace or realized profit is claimed."]}}
+PROFILES["rolling"]={
+    "title":"Single rolling-horizon route-macro-action MILP",
+    "equations":[r"[t,\min(t+H,T))\ {\rm plan};\quad[t,\min(t+k,T))\ {\rm execute};\quad k\le H",
+                  r"\max\ \sum_{o,v,a}(r_o+B_o-p_o(s_a-t))x_{ova}-\sum_{v,a}c_{va}y_{va}-\sum_oB_o,\quad V=0",
+                  r"\sum_{a\in\delta^+(n)}y_{va}-\sum_{a\in\delta^-(n)}y_{va}=b_{vn}",
+                  r"\sum_{v,a}x_{ova}\le1,\quad x_{ova}\le y_{va}",
+                  r"\sum_{o:e\in P_o}q_o x_{ova}+L^{\rm committed}_{vae}\le Q_v",
+                  r"\mathcal{N}_{\rho}(u)=\{v\ne u:d_G(u,v)\le\rho\}"],
+    "notes":["One joint window MILP schedules waiting, repositioning, anchored trips and vehicle reuse over several periods.",
+             "Uses only currently booked orders; unrevealed readiness stays at the current conservative upper bound. No forecast or oracle future orders.",
+             "Past/active commitments are immutable. Only the first k periods are executed; unexecuted suffixes are discarded at replanning.",
+             "Trips are route macro-actions within a window. Intermediate continuation is fixed; prefix-compatible extensions are reconsidered at the next replan.",
+             "B_o is unassigned backlog/expiry cost over this window; s_a is assignment time. c_va includes full newly committed route cost, waiting/reposition and delay tie-break, even if completion is beyond the window.",
+             "Completion extends automatically beyond the planning boundary when necessary; no new dispatch after T. Window gaps are not full-run bounds.",
+             "Optimization uses booked stage accounting; evaluation can use the independent full-cooldown realized ledger. No training."]}
+PROFILES['oracle_preview']={**PROFILES['rolling'],'title':'Oracle demand preview (NOT deployable)',
+    'notes':PROFILES['rolling']['notes'][:1]+[
+        'Information-relaxation diagnostic: additionally reveals frozen bookings in (t,t+H]. No assignment before booking and no pickup before ready. Only the current action is committed.',
+        'H retains the platform half-open decision-period convention. A booking exactly at t+H is visible but has no decision slot in that window.',
+        'Unrevealed batch readiness is still frozen at its current bound. Route-macro-action restriction remains; this is not a global optimal bound or proof of RL benefit.']+PROFILES['rolling']['notes'][2:]}

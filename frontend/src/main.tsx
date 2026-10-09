@@ -71,7 +71,8 @@ function defaultSpec(meta?: Json): Json {
       solver: { ...b.solver, backend: meta.backends[m] },
       evaluation: {
         ...b.evaluation,
-        accounting_version: meta.accounting,
+        accounting_version: f.accounting_version ?? meta.accounting,
+        terminal_policy: f.terminal_policy ?? "report_pending",
         metrics: meta.metrics.map((m: Json) => m.key),
         information_set: f.information_set ?? "online",
       },
@@ -527,7 +528,8 @@ function Workspace({
       solver: { ...spec.solver, backend: meta.backends[model] },
       evaluation: {
         ...spec.evaluation,
-        accounting_version: meta.accounting,
+        accounting_version: f.accounting_version ?? meta.accounting,
+        terminal_policy: f.terminal_policy ?? "report_pending",
         information_set: f.information_set ?? "online",
         metrics: meta.metrics.map((m: Json) => m.key),
       },
@@ -1135,12 +1137,20 @@ function Workspace({
                         evaluation: {
                           ...spec.evaluation,
                           terminal_policy: e.target.value,
+                          accounting_version:
+                            meta.evaluation_profiles?.find(
+                              (p: Json) => p.id === e.target.value,
+                            )?.accounting_version ?? meta.accounting,
                         },
                       })
                     }
                   >
-                    <option>report_pending</option>
-                    <option>drain_committed</option>
+                    {(meta.evaluation_profiles ?? [
+                      { id: "report_pending" },
+                      { id: "drain_committed" },
+                    ]).map((p: Json) => (
+                      <option key={p.id} value={p.id}>{p.id}</option>
+                    ))}
                   </select>
                 </label>
                 <p className="muted">

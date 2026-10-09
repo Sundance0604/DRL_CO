@@ -1,0 +1,32 @@
+{
+  "schema_version": "cfs-classical-value/v1",
+  "baseline_config": "experiments/cfs_rho_endofday/configs/main.json",
+  "construction_seeds": [2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026,2027,2028,2029,2030,2031,2032,2033,2034,2035,2036,2037,2038,2039],
+  "validation_seeds": [2100,2101,2102,2103,2104,2105,2106,2107,2108,2109,2110,2111,2112,2113,2114],
+  "formal_seeds": [3000,3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011,3012,3013,3014,3015,3016,3017,3018,3019,3020,3021,3022,3023,3024,3025,3026,3027,3028,3029,3030,3031,3032,3033,3034,3035,3036,3037,3038,3039],
+  "heldout_value_seeds": [3000,3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011],
+  "conditions": [
+    {"region":"california_corridor","orders":80,"fleet":3},
+    {"region":"western_multicluster","orders":40,"fleet":8},
+    {"region":"western_multicluster","orders":80,"fleet":3},
+    {"region":"western_multicluster","orders":20,"fleet":8}
+  ],
+  "formal_rho_labels": ["rho_max"],
+  "placement_rule": "sum eligible CFS outbound WGT_FACTOR by hub; K3 top3; K8 one-per-hub plus top3; tie by hub ID; no fleet RNG",
+  "chebyshev_node_count": 7,
+  "target_supply_slots": [1,2,3,4,6,8],
+  "mc_paths_per_state": 2,
+  "mc_donor_offset": 7,
+  "continuation_policy": "myopic-zero",
+  "secondary_condition": {"region":"western_multicluster","orders":40,"fleet":8},
+  "secondary_seeds": [2000,2001,2002,2003,2004],
+  "degrees": [2,3,4,5,6],
+  "ridge_penalties": [0.01,1,100],
+  "spline_internal_knots": [4,6,8,10],
+  "spline_penalties": [0.1,10,1000],
+  "max_parallel": 3,
+  "bootstrap_seed": 20261006,
+  "bootstrap_replications": 10000,
+  "run_timeout_seconds": 600,
+  "budget_note": "40 construction / 15 validation scenarios per condition; two empirical within-split future paths per state; 40 formal policy replications; 12 independent formal value scenarios. Wide rho only, fixed before test; no pressure-map rerun."
+}

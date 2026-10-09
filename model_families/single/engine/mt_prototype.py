@@ -16,6 +16,8 @@ import gurobipy as gp
 from gurobipy import GRB
 from model_families.single.scenarios import generate_scenario
 from .demand import city_times, convert, convert_batches, ready_time
+from model_families.single.network import fixed_paths
+from model_families.single.planning import decision_vehicles, route_candidates, expired_orders
 
 SPEED, Q = 20, 7
 C_LOADED, C_WAIT, PHI = 10.0, 0.0, 300.0      # placeholders
@@ -24,19 +26,13 @@ TIE = 1.0                                     # solver-only tie-break against ne
 
 
 class Net:
-    """Highway graph with a consistent family of shortest paths (Assumption 3)."""
+    """Physical graph with a consistent family of shortest paths (Assumption 3)."""
     def __init__(self, G, seed, speed=SPEED):
         self.speed = speed
-        rng = random.Random(seed)
-        self.H = nx.Graph()
-        for u, v, w in G.edges(data="weight"):
-            self.H.add_edge(u, v, weight=w, pw=w + rng.random() * 1e-6)   # unique shortest paths
-        self.path, self.d, self.tau = {}, {}, {}
-        for u in self.H:
-            for v, p in nx.single_source_dijkstra_path(self.H, u, weight="pw").items():
-                self.path[u, v] = p
-                self.d[u, v] = sum(self.H[a][b]["weight"] for a, b in zip(p, p[1:]))
-                self.tau[u, v] = sum(self.lt(a, b) for a, b in zip(p, p[1:]))
+        self.H = G.copy()
+        self.path, self.d = fixed_paths(self.H)
+        self.tau = {key: sum(self.lt(a, b) for a, b in zip(p, p[1:]))
+                    for key, p in self.path.items()}
         for (u, v), p in self.path.items():            # subpath consistency
             for i in range(len(p)):
                 for j in range(i, len(p)):
@@ -56,12 +52,15 @@ class Veh:
         self.route, self.dead, self.arrive = [], 0, None   # remaining hubs, deadhead hubs left, next arrival
         self.hold = None                                   # departure period of a vehicle that waits at its hub with orders
         self.orders, self.onboard = {}, set()
+        self.segments, self.pickups, self.deliveries = [], {}, {}
 
     def copy(self):
         c = Veh(self.id, self.loc)
         c.phase, c.route, c.dead, c.arrive = self.phase, list(self.route), self.dead, self.arrive
         c.hold = self.hold
         c.orders, c.onboard = dict(self.orders), set(self.onboard)
+        c.segments = [dict(s) for s in self.segments]
+        c.pickups, c.deliveries = dict(self.pickups), dict(self.deliveries)
         return c
 
 
@@ -91,43 +90,12 @@ def build_and_solve(t, net, pool, vehs, hops, c_empty, repos, flat_v=None, vfun=
     m.Params.MIPGap = 0.0
     for key, value in (solver_parameters or {}).items():
         m.setParam({"time_limit_seconds": "TimeLimit", "mip_gap": "MIPGap", "threads": "Threads", "seed": "Seed"}[key], value)
-    dec = [k for k in vehs if k.phase == "idle"
-           or (k.phase == "trip" and k.dead == 0 and (k.arrive == t or k.hold is not None))]
+    dec = decision_vehicles(t, vehs)
     routes, y, x, z, w = {}, {}, {}, {}, {}
     cover = {}                                          # (o, k) -> list of y vars whose route serves o
     for k in dec:
-        c, cand = k.loc, []
-        if k.phase == "idle":
-            pickups = [c] + (list(net.H.neighbors(c)) if hops else [])
-            for p in pickups:
-                for e in net.H:
-                    if e == p:
-                        continue
-                    for delay in range(DMAX + 1):          # wait `delay` periods at the own hub, then leave
-                        cand.append(dict(p=p, e=e, B=net.path[p, e], delay=delay, t0=t + delay + net.tau[c, p],
-                                         cost=C_WAIT * delay + c_empty * net.d[c, p] + C_LOADED * net.d[p, e],
-                                         new=True))
-        else:
-            ebar = k.route[-1]
-            leave = t if k.hold is None else k.hold        # departure period from the current hub
-            assert [c] + k.route == net.path[c, ebar]
-            cand.append(dict(p=c, e=ebar, B=net.path[c, ebar], delay=0, t0=leave, cost=0.0, new=False))
-            for e in net.H:
-                if e not in (c, ebar) and net.path[c, e][:len(k.route) + 1] == [c] + k.route:   # eq. (extension)
-                    cand.append(dict(p=c, e=e, B=net.path[c, e], delay=0, t0=leave,
-                                     cost=C_LOADED * net.d[ebar, e], new=True))
-        for r in cand:
-            B, serve = r["B"], []
-            for o in pool.values():
-                if o.departure in B and o.destination in B:
-                    i, j = B.index(o.departure), B.index(o.destination)
-                    if i < j and B[i:j + 1] == net.path[o.departure, o.destination]:
-                        t_dep = r["t0"] + net.tau[r["p"], o.departure]
-                        t_des = r["t0"] + net.tau[r["p"], o.destination]
-                        if t_dep >= ready_time(o, t) and t_des <= o.end_time:  # eq. (okr)
-                            serve.append(o)
-            r["serve"] = serve
-        cand = [r for r in cand if r["serve"] or not r["new"]]
+        c = k.loc
+        cand = route_candidates(t, net, pool, k, hops, c_empty, parameters)
         routes[k.id] = cand
         for ri, r in enumerate(cand):
             y[k.id, ri] = m.addVar(vtype=GRB.BINARY)
@@ -173,8 +141,7 @@ def build_and_solve(t, net, pool, vehs, hops, c_empty, repos, flat_v=None, vfun=
             m.addConstr(y[k.id, ri] <= gp.quicksum(x[o.id, k.id] for o in r["serve"] if o.destination == r["e"]))
     for (oid, kid), ys in cover.items():                                        # (cover)
         m.addConstr(x[oid, kid] <= gp.quicksum(ys))
-    exp = {oid for oid, o in pool.items()
-           if max(t + 1, ready_time(o, t)) + net.tau[o.departure, o.destination] > o.end_time}
+    exp = expired_orders(t, net, pool)
     profit = (gp.quicksum(pool[oid].revenue * x[oid, kid] for (oid, kid) in x)
               - gp.quicksum(routes[kid][ri]["cost"] * y[kid, ri] for (kid, ri) in y)
               - gp.quicksum(c_empty * net.d[vehs[kid].loc, j] * z[kid, j] for (kid, j) in z)
@@ -199,7 +166,8 @@ def build_and_solve(t, net, pool, vehs, hops, c_empty, repos, flat_v=None, vfun=
     if solve_info is not None:
         solve_info.update(status=status, runtime=m.Runtime, incumbent=m.ObjVal if m.SolCount else None,
                           bound=m.ObjBound if math.isfinite(m.ObjBound) else None,
-                          gap=m.MIPGap if m.SolCount and math.isfinite(m.MIPGap) else None)
+                          gap=(m.MIPGap if math.isfinite(m.MIPGap) else None) if m.SolCount and m.IsMIP else 0 if m.SolCount else None)
+        solve_info["candidate_route_count"] = sum(len(r) for r in routes.values())
     if not m.SolCount:
         m.dispose()
         raise RuntimeError(f"solver returned {status}; no incumbent to commit")
@@ -228,6 +196,10 @@ def depart(k, t, net, capacity=Q):
     if k.phase == "trip" and k.dead == 0:
         assert sum(k.orders[i].passenger for i in k.onboard) <= capacity, "seat limit violated on a link"
     k.arrive = t + net.lt(k.loc, k.route[0])
+    k.segments.append(dict(origin=k.loc, destination=k.route[0], start=t, end=k.arrive,
+                           distance=net.H[k.loc][k.route[0]]["weight"],
+                           load=sum(k.orders[i].passenger for i in k.onboard),
+                           kind="pickup_empty" if k.dead > 0 else "reposition" if k.phase == "repos" else "service"))
 
 
 def load_case(seed, nv, ops, horizon=24, lead=True, batches=True):
@@ -286,11 +258,13 @@ class Sim:
                 depart(k, t, net, self.parameters.get("capacity", Q)); continue
             for oid in [i for i in k.onboard if k.orders[i].destination == k.loc]:
                 assert t <= k.orders[oid].end_time, "late delivery"
+                k.deliveries[oid] = t
                 k.onboard.discard(oid); del k.orders[oid]; S["delivered"] += 1
             for oid, o in k.orders.items():
                 if o.departure == k.loc and oid not in k.onboard:
                     assert t >= o.start_time
                     k.onboard.add(oid)
+                    k.pickups[oid] = t
             if not k.route:
                 assert not k.orders, "trip ended with undelivered orders"
                 k.phase, k.arrive = "idle", None
@@ -337,7 +311,7 @@ class Sim:
                 deadpath = net.path[k.loc, r["p"]][1:]
                 k.phase, k.dead, k.route = "trip", len(deadpath), deadpath + r["B"][1:]
                 if deadpath:                               # waits `delay` periods, then drives empty to the pickup hub
-                    k.arrive = t + r["delay"] + net.lt(k.loc, k.route[0])
+                    depart(k, t + r["delay"], net, self.parameters.get("capacity", Q))
                     S["delayed"] += int(r["delay"] > 0)
                     continue
                 k.hold = t + r["delay"]
@@ -353,6 +327,7 @@ class Sim:
                 if o.departure == k.loc and oid not in k.onboard:
                     assert t >= o.start_time, "boarded before the order was ready"
                     k.onboard.add(oid)
+                    k.pickups[oid] = t
             depart(k, t, net, self.parameters.get("capacity", Q))
         for kid, j in sol["z"]:
             k = vehs[kid]

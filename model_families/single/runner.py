@@ -94,6 +94,19 @@ def matching(spec, scenario, seed, checkpoint, stop_period=None, training=None):
     for o in all_orders.values():
         by_t.setdefault(o.book_time, []).append(o)
     params, vf = spec.model.parameters, spec.value_function
+    rolling = None
+    if spec.controller.id in {"rolling_horizon","oracle_preview"}:
+        from .rolling import RollingController
+        if vf.id != "zero":
+            raise PlatformError("UNSUPPORTED_COMBINATION", "rolling route planner requires zero value")
+        if spec.controller.id == "oracle_preview":
+            from .rolling.controller import OraclePreviewController
+            rolling=OraclePreviewController(spec.controller.parameters,checkpoint,
+                lambda t,end:[o for u,group in by_t.items() if t<u<=end for o in group])
+        else:
+            rolling = RollingController(spec.controller.parameters, checkpoint)
+    from .rolling.audit import DeferralAudit
+    audit=DeferralAudit()
     cache, rng, trace, totals = (
         {},
         random.Random(seed),
@@ -156,7 +169,9 @@ def matching(spec, scenario, seed, checkpoint, stop_period=None, training=None):
                 if when <= sim.T:
                     training.append((features(sim, hub, when), value))
         info = {}
-        if spec.controller.id == "rollout":
+        if rolling is not None:
+            plan = rolling.decide(sim, info)
+        elif spec.controller.id == "rollout":
             cp = spec.controller.parameters
             futures = []
             sampler = (
@@ -218,6 +233,7 @@ def matching(spec, scenario, seed, checkpoint, stop_period=None, training=None):
             raise PlatformError(
                 "STALE_PLAN", "state changed before commit", exit_code=7
             )
+        serialized["solver"]["deferral_audit"]=audit.observe(sim,serialized)
         sim.commit_plan(plan)
         totals["augmented_solver_objective"] += plan[1]
         for r in serialized["routes"]:
@@ -237,19 +253,37 @@ def matching(spec, scenario, seed, checkpoint, stop_period=None, training=None):
     if stop_period is not None:
         raise PlatformError("PERIOD_RANGE", "requested period outside scenario horizon")
     pending_unassigned = len(sim.pool)
-    if spec.evaluation.terminal_policy == "drain_committed":
+    from .accounting import realized_ledger, cooldown_tick, completion_bound
+    decision_rows = list(trace)
+    ledger_at_T = realized_ledger(sim, all_orders, decision_rows)
+    cap = completion_bound(sim)
+    remaining_time = sum(max(0, (v.arrive if v.arrive is not None else max(sim.t, v.hold or sim.t) + sim.net.lt(v.loc, v.route[0])) - sim.t)
+                         + sum(sim.net.lt(a,b) for a,b in zip(v.route,v.route[1:]))
+                         for v in sim.vehs if v.phase != "idle")
+    if spec.evaluation.terminal_policy in {"drain_committed", "cooldown_realized"}:
         sim.pool = {}
-        cutoff = math.ceil(max([sim.T] + [o.end_time for o in all_orders.values()])) + 1
-        while any(v.phase != "idle" for v in sim.vehs) and sim.t <= cutoff:
+        while any(v.phase != "idle" for v in sim.vehs):
+            if sim.t >= cap:
+                raise RuntimeError("cooldown cap reached with unfinished commitments")
             checkpoint()
-            sim.begin_period([])
             before = state_snapshot(sim)
-            info = {}
-            plan = solve(sim, info=info)
-            sim.commit_plan(plan)
-            totals["augmented_solver_objective"] += plan[1]
-            trace.append(make_step(sim.t - 1, before, serialize_plan(plan, sim.t - 1, digest(before), info),
-                                   state_snapshot(sim), trace, all_orders, [], params) | {"drain": True})
+            period = sim.t
+            cooldown_tick(sim)
+            plan = {"period":period,"state_hash":digest(before),"operating_profit":0,
+                    "augmented_solver_objective":0,"assignments":[],"routes":[],"repositions":[],
+                    "expired":[],"accounting":{},"solver":{"status":"COMMITTED_EXECUTION_ONLY","runtime":0}}
+            trace.append(make_step(period,before,plan,state_snapshot(sim),trace,all_orders,[],params) | {"drain":True})
+    final_ledger = realized_ledger(sim, all_orders, decision_rows)
+    previous_realized = 0.0
+    for row in trace:
+        row["realized_ledger"] = realized_ledger(sim, all_orders, decision_rows, row["period"]+1)
+        ledger = row["realized_ledger"]
+        row["measurements"].update(realized_profit=ledger["realized_profit"],
+                                    period_realized_profit=ledger["realized_profit"]-previous_realized,
+                                    completed_fare=ledger["completed_fare"],
+                                    actual_loaded_distance=ledger["actual_loaded_distance"],
+                                    actual_empty_distance=ledger["actual_empty_distance"])
+        previous_realized = ledger["realized_profit"]
     pending_committed = sum(len(v.orders) for v in sim.vehs)
     assigned_ids = {a["order_id"] for row in trace for a in row["plan"]["assignments"]}
     outstanding = {oid for v in sim.vehs for oid in v.orders}
@@ -278,9 +312,25 @@ def matching(spec, scenario, seed, checkpoint, stop_period=None, training=None):
         else None,
         business_cost=sum(row["plan"]["accounting"].get("business_cost", 0) for row in trace),
         business_cost_reason="assignment-time planned route costs plus periodic penalties; not measured actual expenditure",
-        actual_distance=None,
-        actual_distance_reason="route distances are committed plans; final in-flight distance is not reconstructed",
+        actual_distance=final_ledger["actual_loaded_distance"] + final_ledger["actual_empty_distance"],
+        actual_distance_reason="executed segment distance; in-flight segments prorated by elapsed travel time",
     )
+    metrics.update(final_ledger)
+    metrics.update(audit.finish(trace,all_orders,final_ledger))
+    if rolling is not None:
+        metrics.update(planning_windows=rolling.windows, window_solve_count=len(rolling.windows),
+                       planning_algorithm=spec.controller.parameters["planner_id"],
+                       planning_information=rolling.information_mode)
+    metrics["execution_events"] = [dict(vehicle_id=str(v.id),segments=v.segments,
+                                         pickup_times=v.pickups,delivery_times=v.deliveries) for v in sim.vehs]
+    metrics.update(ledger_at_T=ledger_at_T, remaining_committed_vehicle_time=remaining_time,
+                   cooldown_periods=sim.t-sim.T, cooldown_cap=cap-sim.T,
+                   candidate_route_count=sum(r["plan"]["solver"].get("candidate_route_count",0) for r in decision_rows),
+                   solver_time=sum(r["plan"]["solver"].get("runtime",0) for r in decision_rows),
+                   cooldown_scan={str(length):realized_ledger(sim,all_orders,decision_rows,min(sim.T+length,sim.t))
+                                  for length in [0,5,10,20]} | {"until_completion":final_ledger})
+    if spec.evaluation.accounting_version == "single-realized-v1":
+        metrics["operating_profit"] = final_ledger["realized_profit"]
     return metrics, trace
 
 
@@ -453,7 +503,12 @@ def execute(spec, data, scenarios, target, policy_seed, emit, cancelled):
     atomic_json(target / "trace.json", traces)
     from .metrics import DEFINITIONS
 
-    atomic_json(target / "metric-definitions.json", DEFINITIONS)
+    definitions = copy.deepcopy(DEFINITIONS)
+    if spec.evaluation.accounting_version == "single-realized-v1":
+        for definition in definitions:
+            if definition["key"] == "operating_profit":
+                definition.update(label="Completed-execution profit", accounting_version="single-realized-v1")
+    atomic_json(target / "metric-definitions.json", definitions)
     atomic_json(
         target / "charts.json",
         {

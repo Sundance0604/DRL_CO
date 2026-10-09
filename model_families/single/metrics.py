@@ -12,3 +12,9 @@ DEFINITIONS = [metric(k,l,u,s,p,"legacy-assignment-v1",["single_level_matching"]
 ("delivered_order_rate","Delivery rate","fraction","maximize","orders"),
 ("upper_bound","Perfect-information upper bound","currency","upper-bound","full horizon")]]
 TRACE_SCHEMA = {"version":"single-trace/v2", "granularity":"period", "fields":["before","observation","plan","after","measurements","invariants"]}
+DEFINITIONS += [metric(k,l,u,s,p,"single-realized-v1",["single_level_matching"]) for k,l,u,s,p in [
+    ("realized_profit","Completed-execution profit","currency","maximize","run"),
+    ("actual_loaded_distance","Occupied vehicle distance","miles","diagnostic","run"),
+    ("actual_empty_distance","Empty vehicle distance","miles","minimize","run"),
+    ("completed_fare","Fare of delivered orders","currency","maximize","orders"),
+    ("load_factor","Load-distance / capacity-distance","fraction","maximize","run")]]

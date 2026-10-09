@@ -2,6 +2,16 @@
 
 当前分支：`react-experiment-platform`。文档更新：2026-10-03。功能版本：v0.2。
 
+2026-10-10 数值研究同步：[数值实验与报告索引](reports/README.md) 汇集多轮 CFS 与 PPO 的源码、配置、可读报告和汇总图。数据集、原始轨迹、权重、价值表及完整运行目录留在本地；复现所需本地输入见索引说明。
+
+完整逐字段使用说明：[Single 实验平台详细手册](docs/SINGLE_PLATFORM_USER_GUIDE.md)（2026-10-04）。覆盖全部 11 个页面、条件出现的框架参数、批实验 JSON、逐 t trace、统计口径和 Python 导出；首次使用建议按手册第 15 节操作。
+
+2026-10-04 CFS 限范围实验：新增 single 的物理网络 `pickup_radius`（英里，默认0仅own hub）、双账本与无再次优化的日终完整执行。正式比较显式选择 `single-realized-v1 / cooldown_realized`；旧 booked 模式仅供复现。CFS货值不当运费，几何网络不当真实公路；详见 [实验复现说明](experiments/cfs_rho_endofday/README.md)、[修改前审计](reports/cfs_rho_endofday/implementation_audit.md) 与 [仿真报告](reports/cfs_rho_endofday/simulation_report.md)。现有逐字段手册描述修改前默认核算，本次新增口径以上述实验说明为准。
+
+2026-10-05：single 新增独立的 rolling-horizon 框架，默认使用已知订单的多期联合路线 MILP、`V=0` 和 realized 日终核算，不是强化学习，也不是原 sampled rollout。原 CFS 实验结果未重写；其源代码快照记录的是当时的版本，不含本次新增框架。
+
+第二次数值仿真：运行入口与数据索引见 [cfs_dynamic_lookahead](experiments/cfs_dynamic_lookahead/README.md)。压力扫描使用20/40/80订单、3/5/8车、旧报告三档rho；比较myopic、合法known-supply RH与明确标为**不可部署oracle diagnostic**的未来订单preview。所有结果仍采用full-cooldown realized ledger，旧CFS产物不覆盖；大体积raw本地保存并从Git排除。实验完成状态与源码/配置身份以新结果目录的manifest为准，不能拿pilot均值冒称正式30-seed结论。
+
 ## 本分支负责什么
 
 这是目前推荐使用的实验工作台分支，不是把三篇研究拼成一个算法。公共平台只负责调度、文件/状态、结果存储、通用统计与绘图；旧 DRL/SAC、BHH、single-level 各自拥有参数、数据接口、数学展示、框架、runner、metrics、trace 和模板。
@@ -11,6 +21,7 @@
 - 网页在“诊断”下方选择研究模型族；名称和固定蓝/橙/青绿 accent 同时标识上下文，数据、参数、框架、公式、运行和结果随模型切换。
 - 三族共用范围/间隔、离散值及批次校验协议；同一实验条件下区分 scenario seed、policy seed、training seed。
 - single 的 myopic、fluid、rollout、oracle 直接执行，默认不出现训练流程；可选 learned hub value 是监督拟合，不是 SAC 强化学习。
+- single 的 rolling 联合安排窗口内车辆路线、订单与后续车辆复用；窗口控制、规划器、执行校验相互独立。
 - single 逐 t 状态、观察、决策、收益/成本/服务指标与不变式记录。
 - single 多算法、多场景、参数敏感性、热力图、时间序列、配对差值；本地 Python 导出 PDF/SVG/600 dpi PNG、数据、配置与可离线重绘脚本。
 - 冻结数据、独立进程任务、源快照、复现 ZIP、本机 token/Origin 防护与脱敏诊断。
@@ -51,6 +62,8 @@
 │  │  ├─ plugin.py                框架/组件/颜色/训练需求
 │  │  ├─ mathematics.py           当前框架公式摘要
 │  │  ├─ runner.py / metrics.py   正式执行、逐 t、指标定义
+│  │  ├─ planning.py              共享路线可行性、领域动作、执行前校验
+│  │  ├─ rolling/                 H/k 控制、规划接口、可替换窗口算法
 │  │  ├─ analysis.py              single 结果到分析协议的提取器
 │  │  ├─ templates/               本族网页实验模板
 │  │  ├─ scenarios.py             独立场景生成
@@ -89,6 +102,10 @@
 |---|---|
 | single 的 MILP、车辆/订单推进 | [model_families/single/engine/mt_prototype.py](model_families/single/engine/mt_prototype.py) |
 | single 的前瞻/rollout 原型 | [model_families/single/engine/online_lookahead.py](model_families/single/engine/online_lookahead.py) |
+| single 的 rolling 窗口控制 | [controller.py](model_families/single/rolling/controller.py)：时间边界、可见状态、冻结执行前缀与重规划 |
+| single 的 rolling 规划算法 | [route_milp.py](model_families/single/rolling/route_milp.py)：联合多期路线宏动作 MILP |
+| rolling 算法接口 / 注册 | [contracts.py](model_families/single/rolling/contracts.py)、[registry.py](model_families/single/rolling/registry.py) |
+| single 动作生成与执行校验 | [planning.py](model_families/single/planning.py)：旧 M_t 与 rolling 共享物理约束 |
 | single 实验正式入口、逐 t 数据 | [model_families/single/runner.py](model_families/single/runner.py) |
 | single 参数、数学、指标 | [parameters.py](model_families/single/parameters.py)、[mathematics.py](model_families/single/mathematics.py)、[metrics.py](model_families/single/metrics.py) |
 | SAC 神经网络 | [model_families/legacy/engine/rl/candidate_sac.py](model_families/legacy/engine/rl/candidate_sac.py) |
@@ -109,6 +126,47 @@
 | Windows 双击、本地启动/停止与 CLI | [start.bat](start.bat)、[launch.py](experiment_core/launch.py)、[cli.py](experiment_core/cli.py)、[scripts/](scripts/) |
 
 所有族均按自身 package 维护 `parameters.py`、`generation.py`、`data.py`、`plugin.py`、`mathematics.py`、`runner.py`、`metrics.py` 与模板。新增研究逻辑不要写进其他族或公共调度层。
+
+## Single rolling horizon：使用与实现边界
+
+在左侧选择 **Single-level model**，进入“实验编辑器”，选择 **Rolling-horizon joint route planning**；选择 single 数据、调整模型参数后校验并提交。该框架不出现训练步骤，自动选择 `single-realized-v1 / cooldown_realized`。也可加载 [matching-rolling 模板](model_families/single/templates/experiments--matching-rolling.json)。模板数据引用只是示例，需替换为本机已存在的数据版本。重启后端并使用最新网页构建后，新框架才会出现在目录中。
+
+| 框架参数 | 默认 | 含义 |
+|---|---:|---|
+| `planning_horizon` | 6 | H，联合规划 `[t, min(t+H,T))` 内的新决策；范围1–100 |
+| `commit_periods` | 1 | k，执行本窗口前 k 期后重规划；范围1–H。k越大，响应新订单越慢 |
+| `completion_extension` | 6 | 完成时间诊断的额外 padding；范围0–100。不扩大新决策区间，不是行程截断上限；必要时自动延长 |
+| `planner_id` | `route_milp` | 当前注册的算法。控制器只依赖 `WindowPlanner` 接口，不依赖 Gurobi 变量 |
+
+可以通过现有批实验协议扫描上述数值参数。扫描 H 与 k 时，每个组合都必须满足 `k <= H`；非法组合会被拒绝，不会静默修正。
+
+### 控制、算法与状态更新分层
+
+1. `rolling/controller.py` 负责 H/k 边界、当前可见状态快照、规划后缀的丢弃，以及每一期动作的选择。窗口、执行前缀均使用右端不含的区间；如 T=5、H=4、k=2，窗口为 `[0,4)`、`[2,5)`、`[4,5)`，执行区间为 `[0,2)`、`[2,4)`、`[4,5)`。
+2. `rolling/contracts.py` 规定 `WindowRequest -> WindowSolution`。请求只含隔离后的当前状态、窗口边界和中断检查；输出是按期组织的 `PeriodAction / VehicleAction`，以及算法诊断，不是求解器内部索引。
+3. `rolling/route_milp.py` 是第一种规划器：在一个 MILP 中联合选择车辆时空流、等待、允许的调位、已承诺路线继续/兼容延长、新路线和订单分配。固定路线锚点、逐弧容量、网络 rho、ready/deadline 与原 single 物理规则一致。订单最多分配一次，完成一趟后的车辆可以在窗口后续期再次使用。
+4. `planning.py` 在每一期执行前按真实状态重新校验：时钟、车辆可用性、订单唯一性、pickup/endpoint 锚点、路线前缀与剩余逐弧容量。未指定的闲置车辆等待；未指定的在途车辆必须继续已有承诺。动作编译为原 `DecisionPlan` 后，仍由原 `Sim.commit_plan` 统一推进，保留 revision 与 stale-plan 防护。
+5. `runner.py` 仍负责订单出现、执行、逐 t trace、双账本与日终冷却。规划器不能修改真实状态，不接触 scenario 全部未来订单，也不能绕过统一执行器。
+
+增加新算法时，在 single 的 `rolling/` 内实现 `.plan(request)` 并在 `registry.py` 显式注册；返回相同领域动作即可复用控制、批实验、执行、trace 与核算。可直接注入另一规划器做单元测试。若新算法有专属参数，应在本族 Schema 中扩展，不在公共平台硬编码算法分支。借鉴的是 BHH 的窗口/冻结思想，没有导入 BHH 的 AV/HV、往返业务变量或参数类。
+
+### 信息、承诺与日终边界
+
+- **仅当前已预订订单**：没有需求预测，没有偷看后续真实订单。未揭示的 batch ready 使用当前可见上界，并在整个窗口中冻结这个上界，不利用未来 cutoff 的实际结果。
+- **执行 k 期**：k期内新出现的订单正常进入订单池、计罚、过期，但不插入冻结计划；下一次重规划才能考虑。推荐先用 k=1。
+- **物理承诺不撤销**：已经分配的订单、在途空驶、装载、holding、骨干路线和逐弧容量随真实车辆带入新窗口；仅未执行的规划后缀丢弃。规划尾部不直接写入真实状态。
+- **T是新决策硬截止**：决策只发生在 `t < T`。路线可以在 H 或 T 后完成；`cooldown_realized` 在日终仅执行已有承诺，不再优化、不接受新分配。即使 `completion_extension=0` 也不会截断长路线。
+- **中断与失败**：窗口构建和求解期间均检查取消/超时。有可行 incumbent 时可以执行并记录窗口 gap；没有可行解则失败，不提交动作、不自动改成 myopic。执行前发现非法动作也会拒绝，不能静默丢弃已有订单。
+
+### 第一版不是完整全局最优模型
+
+当前算法使用**路线宏动作**：在一个窗口内部，新选路线按既定骨干执行到端点；中间到站只继续承诺，不额外规划中途接单/延长。真实下一次重规划时，又允许原 single 的前缀兼容延长与沿途接单。因此它是可行的受限多期路线模型，不是所有逐期 M_t 动作序列的精确等价展开，也不是 full-horizon oracle。
+
+窗口目标是当前可见订单的 **booked** 收益/成本（包含本次承诺的完整路线成本、backlog/expiry、等待及原 delay tie-break）；没有预测价值，`V=0`。窗口后缀会被重规划，未来新订单也会出现，故不能将多个 `window_objective` 相加当作实际利润；正式比较使用完整执行后的 `realized_profit`。不同 H/k 不保证单调改善，需配对实验评估。
+
+逐 t `plan.solver` 新增 `replanned`、`window`；样本 metrics 新增 `planning_windows`、`window_solve_count`、`planning_algorithm` 和 `planning_information`。每个窗口记录起止/冻结边界、可见订单、求解状态、时间、`window_objective`、bound、gap、完成边界与自动延长量。该 bound/gap 只针对本窗口的受限 MILP；`global_gap` 明确为 null。`candidate_route_count` 是窗口构建的路线列总数，包含最终未被车辆流选中的候选，不宜直接与单期 myopic 的候选数比较。
+
+回归入口：[test_single_rolling.py](tests/test_single_rolling.py)。其中合成场景仅用于验证控制与物理约束，不是 CFS 数据，也不是算法效果的统计结论。
 
 ### 兼容目录不是另一套需要同时修改的模型
 

@@ -10,9 +10,15 @@ class Empty(Contract):
     pass
 REGISTRY = {
 "model":{"single_level_matching":p.MatchingParameters},
-"controller":{"myopic":Empty,"rollout":p.RolloutParameters,"train_value":p.TrainParameters,"oracle_lp":Empty,"oracle_mip":Empty},
+"controller":{"myopic":Empty,"rolling_horizon":p.SingleRollingParameters,"oracle_preview":p.SingleRollingParameters,"rollout":p.RolloutParameters,"train_value":p.TrainParameters,"oracle_lp":Empty,"oracle_mip":Empty},
 "value_function":{"zero":Empty,"fluid_dual":p.FluidParameters,"learned_hub_time":p.LearnedParameters}}
 FRAMEWORKS = [{"id":"myopic","label":"Myopic","controller":"myopic","value_function":"zero","training_required":False},{"id":"fluid","label":"Analytical / fluid value","controller":"myopic","value_function":"fluid_dual","training_required":False},{"id":"rollout","label":"Sampled rollout","controller":"rollout","value_function":"zero","training_required":False},{"id":"oracle_lp","label":"Perfect-information LP bound","controller":"oracle_lp","value_function":"zero","information_set":"oracle","training_required":False},{"id":"oracle_mip","label":"Perfect-information MIP benchmark","controller":"oracle_mip","value_function":"zero","information_set":"oracle","training_required":False},{"id":"learned","label":"Learned hub value (optional supervised component)","controller":"myopic","value_function":"learned_hub_time","training_controller":"train_value","training_required":True}]
+FRAMEWORKS.append({"id":"rolling","label":"Rolling-horizon joint route planning","controller":"rolling_horizon",
+                   "value_function":"zero","training_required":False,
+                   "accounting_version":"single-realized-v1","terminal_policy":"cooldown_realized"})
+FRAMEWORKS.append({"id":"oracle_preview","label":"Oracle demand preview (diagnostic, not deployable)",
+                   "controller":"oracle_preview","value_function":"zero","information_set":"oracle",
+                   "training_required":False,"accounting_version":"single-realized-v1","terminal_policy":"cooldown_realized"})
 from .mathematics import PROFILES
 MATH = PROFILES["myopic"]
 def is_training(spec):
@@ -41,13 +47,22 @@ def validate_selection(spec, data, scenarios):
         raise PlatformError("DATASET_MODEL_MISMATCH","dataset belongs to another research family")
     if spec.evaluation.warmup_periods:
         raise PlatformError("UNSUPPORTED_ACCOUNTING","warm-up measurement is not implemented")
-    if spec.evaluation.accounting_version != ACCOUNTING:
+    if spec.evaluation.accounting_version not in {ACCOUNTING, "single-realized-v1"}:
         raise PlatformError("ACCOUNTING_MISMATCH","accounting version does not match research family")
+    if (spec.evaluation.accounting_version == "single-realized-v1") != (spec.evaluation.terminal_policy == "cooldown_realized"):
+        raise PlatformError("ACCOUNTING_MISMATCH", "single-realized-v1 requires cooldown_realized and vice versa")
     if spec.controller.id == "rollout" and spec.value_function.id != "zero":
         raise PlatformError("UNSUPPORTED_COMBINATION","rollout currently requires the zero-value base policy")
+    if spec.controller.id in {"rolling_horizon","oracle_preview"}:
+        if spec.value_function.id != "zero":
+            raise PlatformError("UNSUPPORTED_COMBINATION","rolling route planner currently requires zero value")
+        from .rolling.registry import create_planner
+        create_planner(spec.controller.parameters["planner_id"])
+    if spec.controller.id == "oracle_preview" and (spec.evaluation.information_set != "oracle" or spec.controller.parameters["commit_periods"] != 1):
+        raise PlatformError("PREVIEW_PROFILE","oracle_preview requires oracle information and one-period execution")
     if spec.controller.id in {"oracle_lp","oracle_mip"} and (spec.evaluation.information_set != "oracle" or spec.value_function.id != "zero" or spec.evaluation.terminal_policy != "report_pending"):
         raise PlatformError("BOUND_PROFILE","oracle benchmarks require oracle, zero value and report_pending")
-    if spec.evaluation.information_set == "oracle" and spec.controller.id not in {"oracle_lp","oracle_mip"}:
+    if spec.evaluation.information_set == "oracle" and spec.controller.id not in {"oracle_lp","oracle_mip","oracle_preview"}:
         raise PlatformError("UNSUPPORTED_INFORMATION","online framework cannot claim oracle information")
     if is_training(spec) and (spec.dataset.split != "train" or spec.value_function.id != "zero"):
         raise PlatformError("TRAIN_SPLIT_REQUIRED","supervised fitting requires train split and zero reference")
@@ -69,4 +84,8 @@ def manifest():
     from .metrics import TRACE_SCHEMA
     return {"id":FAMILY_ID,"name":"Single-level model","accent":"#138579","dataset_family":DATASET_FAMILY,"models":list(REGISTRY["model"]),
     "frameworks":FRAMEWORKS,"math":MATH,"math_profiles":PROFILES,"trace":TRACE_SCHEMA,"analysis_supported":True,
-    "accounting":ACCOUNTING,"backends":{m:backend(m) for m in REGISTRY["model"]},"generation_schema":Generation.model_json_schema(),"templates":templates(),"metrics":metric_definitions()}
+    "accounting":ACCOUNTING,"evaluation_profiles":[
+        {"id":"report_pending","accounting_version":ACCOUNTING},
+        {"id":"drain_committed","accounting_version":ACCOUNTING},
+        {"id":"cooldown_realized","accounting_version":"single-realized-v1"}],
+    "backends":{m:backend(m) for m in REGISTRY["model"]},"generation_schema":Generation.model_json_schema(),"templates":templates(),"metrics":metric_definitions()}
