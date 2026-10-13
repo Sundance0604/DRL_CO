@@ -1,0 +1,8 @@
+{
+  "critic_updates": 288,
+  "paired": 216,
+  "primary_CSV_reconciled_to_raw": true,
+  "probes": 810,
+  "source_SHA": "70f2690260fae4487340bbd3510d471c983e7a935a03278de8ab319102dc8e16",
+  "status": "PASSED"
+}

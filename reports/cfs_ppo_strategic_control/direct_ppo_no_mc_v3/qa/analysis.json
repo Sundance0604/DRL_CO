@@ -1,0 +1,7 @@
+{
+  "status": "PASSED",
+  "paired_rows": 216,
+  "independent_bootstrap": true,
+  "all_validation_selection_recomputed": true,
+  "figure_runtime": "repository Matplotlib; bundled Python used for data analysis"
+}

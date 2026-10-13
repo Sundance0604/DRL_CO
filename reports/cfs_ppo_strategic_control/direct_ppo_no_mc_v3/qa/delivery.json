@@ -1,0 +1,14 @@
+{
+  "CSV_independently_reconciled_to_raw": true,
+  "all_numeric_visual_tests_history_sources_byte_verified": true,
+  "code_sha256": "8dba735296275b1ba3437d3c38389159fe4a0687f87ade4c349508d30cd0d3f8",
+  "deliverables": 2571,
+  "delivery_index_sha256": "aba9721aecee228367636d43f0e16c1363a26ab551c494774ec54559667d1b03",
+  "export_rows": [
+    216,
+    288,
+    288,
+    3
+  ],
+  "status": "PASSED"
+}

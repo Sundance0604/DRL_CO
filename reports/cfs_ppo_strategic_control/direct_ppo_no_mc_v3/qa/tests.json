@@ -1,0 +1,13 @@
+{
+  "code_sha256": "ffebdd91b252fea0ffc952ea6adf22340765a83bf5a912d3789b0d09be757548",
+  "errors": 0,
+  "failures": 0,
+  "passed": 64,
+  "scope": "Direct-v3, legacy Direct, PPO, classical value, rolling; not full-platform",
+  "seconds": 5.355,
+  "skipped": 0,
+  "status": "PASSED",
+  "tests": 64,
+  "xml_file": "qa/pytest-final.xml",
+  "xml_sha256": "cfd716394868acefb1aedd9e4e710546c971ba58aa9c7a5373a563ba8fe41ffe"
+}

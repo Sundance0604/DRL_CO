@@ -1,0 +1,9 @@
+{
+  "M0_episodes": 72,
+  "all_replayed": true,
+  "all_zero_equivalent": true,
+  "calls": 3456,
+  "seconds": 222.0470000000205,
+  "status": "PASSED",
+  "zero_episodes": 72
+}

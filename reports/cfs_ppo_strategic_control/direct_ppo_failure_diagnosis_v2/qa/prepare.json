@@ -1,0 +1,8 @@
+{
+  "guard_placement_only": true,
+  "no_numeric_sample_protocol_changes": true,
+  "old_attempt_files": 151,
+  "reused_M0_days": 72,
+  "reused_zero_days": 72,
+  "status": "PASSED"
+}

@@ -1,0 +1,593 @@
+{
+  "CI": "95 and Bonferroni99.444%; exploratory not new confirmatory evidence",
+  "bootstrap_replicates": 20000,
+  "bootstrap_seed": 53000,
+  "budget_policy": "pilot projection only determines proceed/stop; no subset adaptation on profit",
+  "controls_per_state": 15,
+  "counterfactual": "first canonically changed control in frozen order, at most one per model; same Direct continuation",
+  "descriptive_family": 9,
+  "full_actor_states_per_model": 96,
+  "gradient": "new frozen final-recovery loss gradients on last4 training episodes, not historical gradients",
+  "historical_missing": [
+    "per-update actor/critic gradient split",
+    "per-update critic weights",
+    "per-update log_std snapshots except8/16/24/32"
+  ],
+  "maximum_calls": 6000,
+  "maximum_counterfactual_cases": 9,
+  "maximum_output_bytes": 2147483648,
+  "no_training": true,
+  "pilot_actor_states_per_model": 12,
+  "pilot_offline_episodes_per_model": 4,
+  "pilot_states": [
+    {
+      "condition": "california_corridor-n80-k3",
+      "period": 12,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "source": "training/california_corridor-n80-k3/30001/validation-0032-s21008.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "period": 12,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "source": "training/western_multicluster-n40-k8/30001/validation-0008-s21008.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "period": 12,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "source": "training/western_multicluster-n80-k3/30001/validation-0008-s21008.json"
+    }
+  ],
+  "post_hoc": true,
+  "selected_states": [
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "845a31c21d9b3d13da718fee35f907cf4f050d07134e47063a40aeb998c78282",
+      "pending": 6,
+      "period": 4,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "source": "training/california_corridor-n80-k3/30001/validation-0032-s21008.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.3333333333333333,
+      "observation_hash": "6cd31c7417cc6b66b794fde76b58bbf0cd67d9655214ed026dbea3aecb10c7aa",
+      "pending": 14,
+      "period": 4,
+      "scenario_seed": 21009,
+      "seed": 30001,
+      "source": "training/california_corridor-n80-k3/30001/validation-0032-s21009.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "de44c7cb46fac9fb112618c93e8d9b7b86c9bbf8f9e4eb7294e1723f58c5f83e",
+      "pending": 10,
+      "period": 12,
+      "scenario_seed": 21011,
+      "seed": 30001,
+      "source": "training/california_corridor-n80-k3/30001/validation-0032-s21011.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "8d8500d222350f3f4fbe7dd4c845dae9c6f322007072f4f78db040d26dc51288",
+      "pending": 24,
+      "period": 12,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "source": "training/california_corridor-n80-k3/30001/validation-0032-s21008.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "a8b8911940248791ff56bb5468acc5312cf2136cf511f970467c55b77d237a02",
+      "pending": 12,
+      "period": 20,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "source": "training/california_corridor-n80-k3/30001/validation-0032-s21008.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "448e331c686c356a641cd119b9aa530518da7e8879e29045732e69191b962a0c",
+      "pending": 19,
+      "period": 20,
+      "scenario_seed": 21010,
+      "seed": 30001,
+      "source": "training/california_corridor-n80-k3/30001/validation-0032-s21010.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "a95404ae4440d5fd35d37d6552e10050ad4e770b000cee8602e2dd1cf7ebc105",
+      "pending": 7,
+      "period": 4,
+      "scenario_seed": 21008,
+      "seed": 30002,
+      "source": "training/california_corridor-n80-k3/30002/validation-0008-s21008.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "bd0e8810cc95fee00fdf792492bd3baa1cde374c1a4382550a5cb2f07340e6e1",
+      "pending": 16,
+      "period": 4,
+      "scenario_seed": 21010,
+      "seed": 30002,
+      "source": "training/california_corridor-n80-k3/30002/validation-0008-s21010.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "96dc6dc50984905fc59e53f05f37391ca95e63c519e0130d0c93337c80239808",
+      "pending": 12,
+      "period": 12,
+      "scenario_seed": 21010,
+      "seed": 30002,
+      "source": "training/california_corridor-n80-k3/30002/validation-0008-s21010.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "b1159a1fe7841e39f4a69d62ef265e472529de31de611296d277921018fd0f84",
+      "pending": 23,
+      "period": 12,
+      "scenario_seed": 21008,
+      "seed": 30002,
+      "source": "training/california_corridor-n80-k3/30002/validation-0008-s21008.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "114bfafc1b28574ceb6e985eef73cd3af8f821d71f02edcf9ef1d2908268a8f6",
+      "pending": 13,
+      "period": 20,
+      "scenario_seed": 21008,
+      "seed": 30002,
+      "source": "training/california_corridor-n80-k3/30002/validation-0008-s21008.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "53bc0a2e24e1bdd651bc58d87f3e1efcf64dfe9f6b0ce09dbfdbe31820a58d34",
+      "pending": 25,
+      "period": 20,
+      "scenario_seed": 21011,
+      "seed": 30002,
+      "source": "training/california_corridor-n80-k3/30002/validation-0008-s21011.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "68dd6da716389674df8f7518db0736946046f45729896f88ab78508c21e1b5d1",
+      "pending": 7,
+      "period": 4,
+      "scenario_seed": 21008,
+      "seed": 30003,
+      "source": "training/california_corridor-n80-k3/30003/validation-0016-s21008.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.3333333333333333,
+      "observation_hash": "a116a851ddb45e5dc9deb0530ad052062a341083d8672123a6e78938fda6bbf1",
+      "pending": 15,
+      "period": 4,
+      "scenario_seed": 21009,
+      "seed": 30003,
+      "source": "training/california_corridor-n80-k3/30003/validation-0016-s21009.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "951877260eca86aef9c9fc7681e65332785c2407e030d02c347a71268eb32fdf",
+      "pending": 14,
+      "period": 12,
+      "scenario_seed": 21010,
+      "seed": 30003,
+      "source": "training/california_corridor-n80-k3/30003/validation-0016-s21010.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.3333333333333333,
+      "observation_hash": "39a9160614426c40ac5fba50d1b9f0bf1ec2a94f9e75c246272884f7040228a2",
+      "pending": 26,
+      "period": 12,
+      "scenario_seed": 21011,
+      "seed": 30003,
+      "source": "training/california_corridor-n80-k3/30003/validation-0016-s21011.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "de3af14cc40acae7c0dfadb44b0acab5ef58499bf5c707b64d6002cdebfd112a",
+      "pending": 10,
+      "period": 20,
+      "scenario_seed": 21011,
+      "seed": 30003,
+      "source": "training/california_corridor-n80-k3/30003/validation-0016-s21011.json"
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "0c83fedf01757a50d1769b1830271ed138e5a97f333277b96a012918e071abda",
+      "pending": 17,
+      "period": 20,
+      "scenario_seed": 21009,
+      "seed": 30003,
+      "source": "training/california_corridor-n80-k3/30003/validation-0016-s21009.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.5,
+      "observation_hash": "e492a7c6eb2c99c6ac070520dc871ddaec77a056480c5c389308d17b995b5f72",
+      "pending": 2,
+      "period": 4,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "source": "training/western_multicluster-n40-k8/30001/validation-0008-s21008.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.625,
+      "observation_hash": "c396c1e7fd104135c22c09746f2599880b311d36d9e02e2569ee08130c2c9fbb",
+      "pending": 7,
+      "period": 4,
+      "scenario_seed": 21009,
+      "seed": 30001,
+      "source": "training/western_multicluster-n40-k8/30001/validation-0008-s21009.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.125,
+      "observation_hash": "5fb71cfa915cca340899e709cdbdeef5548380038c16b620ecdc2d74312eef39",
+      "pending": 4,
+      "period": 12,
+      "scenario_seed": 21010,
+      "seed": 30001,
+      "source": "training/western_multicluster-n40-k8/30001/validation-0008-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.25,
+      "observation_hash": "866a7bae6ab5f8d7d663eb866ec45163db96b4018eca848cc0e67042f73e7812",
+      "pending": 7,
+      "period": 12,
+      "scenario_seed": 21011,
+      "seed": 30001,
+      "source": "training/western_multicluster-n40-k8/30001/validation-0008-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.25,
+      "observation_hash": "e3303f6b93f88e1d9439bc0bf6deedf666dd45769d7eb5605f5d5ba5f27f5747",
+      "pending": 4,
+      "period": 20,
+      "scenario_seed": 21011,
+      "seed": 30001,
+      "source": "training/western_multicluster-n40-k8/30001/validation-0008-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.0,
+      "observation_hash": "2a1eb11fb50755f1ef490d799221cd81d2b2a155d0b992c3e68ff0de0c5a2dd2",
+      "pending": 9,
+      "period": 20,
+      "scenario_seed": 21010,
+      "seed": 30001,
+      "source": "training/western_multicluster-n40-k8/30001/validation-0008-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.25,
+      "observation_hash": "352cca8fbdb4c73aac17b5ff01815fb75f3b14c7f00483a13bca649823cdd446",
+      "pending": 2,
+      "period": 4,
+      "scenario_seed": 21011,
+      "seed": 30002,
+      "source": "training/western_multicluster-n40-k8/30002/validation-0032-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.375,
+      "observation_hash": "dbbe14679e8e6a4b4bb4d8b95cad7ae9a76593f334db131f421e0df5c3e072fd",
+      "pending": 5,
+      "period": 4,
+      "scenario_seed": 21010,
+      "seed": 30002,
+      "source": "training/western_multicluster-n40-k8/30002/validation-0032-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.0,
+      "observation_hash": "01729ce156cc2ec49f18126bfce4e0a0d78f05643a729297e4f5a29a7942c128",
+      "pending": 5,
+      "period": 12,
+      "scenario_seed": 21010,
+      "seed": 30002,
+      "source": "training/western_multicluster-n40-k8/30002/validation-0032-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.0,
+      "observation_hash": "1ab409caac63f9e50ac1af84ddb123447be5c0318289a9c1cf5aa50562959633",
+      "pending": 9,
+      "period": 12,
+      "scenario_seed": 21008,
+      "seed": 30002,
+      "source": "training/western_multicluster-n40-k8/30002/validation-0032-s21008.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.0,
+      "observation_hash": "1d8a8adab4a95505735f959759eb0811e2ad3079f0219d7754c51614eb8fc5bb",
+      "pending": 4,
+      "period": 20,
+      "scenario_seed": 21009,
+      "seed": 30002,
+      "source": "training/western_multicluster-n40-k8/30002/validation-0032-s21009.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.0,
+      "observation_hash": "72368d5e82b9ab9a9c70e1b3ada833d65fadfcb03de66320b60041b2aed701f9",
+      "pending": 9,
+      "period": 20,
+      "scenario_seed": 21010,
+      "seed": 30002,
+      "source": "training/western_multicluster-n40-k8/30002/validation-0032-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.25,
+      "observation_hash": "5fadb5b419ae072552ec94a4a102e3487c4e25aadfe5ce3d0635ba6ba8ba6cfa",
+      "pending": 1,
+      "period": 4,
+      "scenario_seed": 21011,
+      "seed": 30003,
+      "source": "training/western_multicluster-n40-k8/30003/validation-0008-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.375,
+      "observation_hash": "a424185bea47ba6902561a6ea1dbf1eafe234a27bcc6caa0e3b0fe99713d6d28",
+      "pending": 4,
+      "period": 4,
+      "scenario_seed": 21009,
+      "seed": 30003,
+      "source": "training/western_multicluster-n40-k8/30003/validation-0008-s21009.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.0,
+      "observation_hash": "809c0d2559bb03df7cd0de9398bd985d57fb66386d8d13a32cb32667ecf6a846",
+      "pending": 6,
+      "period": 12,
+      "scenario_seed": 21010,
+      "seed": 30003,
+      "source": "training/western_multicluster-n40-k8/30003/validation-0008-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.0,
+      "observation_hash": "73fc5deb8712ebeec9795af71210c575eec0bdd227a37dedb4ab8477b5b22cdd",
+      "pending": 10,
+      "period": 12,
+      "scenario_seed": 21011,
+      "seed": 30003,
+      "source": "training/western_multicluster-n40-k8/30003/validation-0008-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.125,
+      "observation_hash": "d4b21b86f67028ea63ecb089b6798a8832f4dde3df493ea391e628b1317f0d47",
+      "pending": 5,
+      "period": 20,
+      "scenario_seed": 21009,
+      "seed": 30003,
+      "source": "training/western_multicluster-n40-k8/30003/validation-0008-s21009.json"
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "idle_fraction": 0.0,
+      "observation_hash": "8087b5a47ccef01692663c81fcf9cf9d2a04aa1d57242d0f295544448dddfba8",
+      "pending": 9,
+      "period": 20,
+      "scenario_seed": 21008,
+      "seed": 30003,
+      "source": "training/western_multicluster-n40-k8/30003/validation-0008-s21008.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "d502b517f1ddfce6257b4c7adcfaa8cd61b7104dc3addfbc3375ebc077ed5b67",
+      "pending": 5,
+      "period": 4,
+      "scenario_seed": 21011,
+      "seed": 30001,
+      "source": "training/western_multicluster-n80-k3/30001/validation-0008-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "73b05acb6ec0f9d5aa6a7280764ac3871c5e44453b8abd7f4412f1c001944136",
+      "pending": 17,
+      "period": 4,
+      "scenario_seed": 21010,
+      "seed": 30001,
+      "source": "training/western_multicluster-n80-k3/30001/validation-0008-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "ea496a0eaaa56a7108f94e84727489da056cf19b27b18d0bb9498e694814466e",
+      "pending": 17,
+      "period": 12,
+      "scenario_seed": 21010,
+      "seed": 30001,
+      "source": "training/western_multicluster-n80-k3/30001/validation-0008-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "ce411d63502c02c6b7fc1320dce0229931a12a1f38e6163644eccc59fcbad0d7",
+      "pending": 27,
+      "period": 12,
+      "scenario_seed": 21011,
+      "seed": 30001,
+      "source": "training/western_multicluster-n80-k3/30001/validation-0008-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "ca6042e78d2b064b5f72d8007bb2833c583c14a6f79c4d4e16c476fe151ff4b4",
+      "pending": 19,
+      "period": 20,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "source": "training/western_multicluster-n80-k3/30001/validation-0008-s21008.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.3333333333333333,
+      "observation_hash": "aac2bdc8986b63b1f9e5e8186753fc62087796eed7b8ed983b079961c76e8c2c",
+      "pending": 25,
+      "period": 20,
+      "scenario_seed": 21009,
+      "seed": 30001,
+      "source": "training/western_multicluster-n80-k3/30001/validation-0008-s21009.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "c13b0fd271755a60e5e60d6a6dad0dec98a124fe73510e827d72a397adc3bfee",
+      "pending": 5,
+      "period": 4,
+      "scenario_seed": 21011,
+      "seed": 30002,
+      "source": "training/western_multicluster-n80-k3/30002/validation-0008-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.3333333333333333,
+      "observation_hash": "b3c0a13e39c1e5e929a337adc9b31a538bb918e5c3a2a732e2ecda2d3bdf2e85",
+      "pending": 19,
+      "period": 4,
+      "scenario_seed": 21010,
+      "seed": 30002,
+      "source": "training/western_multicluster-n80-k3/30002/validation-0008-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "b319a505d463a1cdb3386aa7e78564bae6247bc641fee9d6d90970027225802e",
+      "pending": 16,
+      "period": 12,
+      "scenario_seed": 21010,
+      "seed": 30002,
+      "source": "training/western_multicluster-n80-k3/30002/validation-0008-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "d271f54e57c3b8080d8b1046ab79085b6175147edf2565d590f0f9f3f1ed2c72",
+      "pending": 28,
+      "period": 12,
+      "scenario_seed": 21011,
+      "seed": 30002,
+      "source": "training/western_multicluster-n80-k3/30002/validation-0008-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "a1864f0aab6feb34badfd5821fdeae8be3b6f8982a9b250a737a27e3161fd999",
+      "pending": 18,
+      "period": 20,
+      "scenario_seed": 21008,
+      "seed": 30002,
+      "source": "training/western_multicluster-n80-k3/30002/validation-0008-s21008.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.3333333333333333,
+      "observation_hash": "aac2bdc8986b63b1f9e5e8186753fc62087796eed7b8ed983b079961c76e8c2c",
+      "pending": 25,
+      "period": 20,
+      "scenario_seed": 21009,
+      "seed": 30002,
+      "source": "training/western_multicluster-n80-k3/30002/validation-0008-s21009.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.3333333333333333,
+      "observation_hash": "2cf501742a2b8faa75f1c55b0d9826687ab460c4097a57bd22590255e269e2ee",
+      "pending": 6,
+      "period": 4,
+      "scenario_seed": 21011,
+      "seed": 30003,
+      "source": "training/western_multicluster-n80-k3/30003/validation-0024-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "da7b251342879d90bf92e7db63bb1f72679a708011aed9d5dd417471e6d03706",
+      "pending": 16,
+      "period": 4,
+      "scenario_seed": 21010,
+      "seed": 30003,
+      "source": "training/western_multicluster-n80-k3/30003/validation-0024-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "cbbfe9753b08c3181fcefac01d36d7f63cedfb167eff579f2ed44c096ba95aa5",
+      "pending": 17,
+      "period": 12,
+      "scenario_seed": 21009,
+      "seed": 30003,
+      "source": "training/western_multicluster-n80-k3/30003/validation-0024-s21009.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "ab460cf657501e6b0de102929d38db8a35d5771e23cd957463d2aec961305eef",
+      "pending": 28,
+      "period": 12,
+      "scenario_seed": 21011,
+      "seed": 30003,
+      "source": "training/western_multicluster-n80-k3/30003/validation-0024-s21011.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "d34cea83c28c86e52b3f317b58e92f5513a3c5dbdf06da449f96b65927b35c3f",
+      "pending": 17,
+      "period": 20,
+      "scenario_seed": 21010,
+      "seed": 30003,
+      "source": "training/western_multicluster-n80-k3/30003/validation-0024-s21010.json"
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "idle_fraction": 0.0,
+      "observation_hash": "26fbf32ee38a41f2dd156c90ed340c737c7054f32ba78ff690d7da139553e05b",
+      "pending": 24,
+      "period": 20,
+      "scenario_seed": 21009,
+      "seed": 30003,
+      "source": "training/western_multicluster-n80-k3/30003/validation-0024-s21009.json"
+    }
+  ],
+  "selection": "phase t4/12/20 public pending min/max within four validation scenarios; seed breaks ties",
+  "solver_threads": 1,
+  "version": "direct-failure-diagnosis/v1",
+  "wall_seconds": 1200,
+  "workers": 1
+}

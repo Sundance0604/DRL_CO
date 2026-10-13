@@ -1,0 +1,51 @@
+{
+  "actual_visual_review": true,
+  "note": "All three latest PNGs actually displayed and checked; corresponding SVG XML checked, not independently raster rendered.",
+  "reviewed_hashes": {
+    "figures/01-profit.config.json": "91e0710bc22c4b54b6bbb475a35de21f2d133aaa0450613d79312a212b97e651",
+    "figures/01-profit.png": "0ed168a78571299e5dde85db036960ef59e184a9e1c940d976fb8e9411d1b40a",
+    "figures/01-profit.svg": "a47b8e1831d40e316d891ad1021d6e0d1d0d2005b40daeb7361064d697dbd304",
+    "figures/02-learning.config.json": "e8969aca27afcb4de1408380176ac7d6f9bcfb9106aadb680f35fd09cec37cb1",
+    "figures/02-learning.png": "835750bdee9cb356611fdfd5336f2ad9c89dd72f704918a48609ab0628072242",
+    "figures/02-learning.svg": "d94b157f43fa0238d7d6af7c0e99492d118edb17520972aae81e08fc42e4958b",
+    "figures/03-seeds.config.json": "d8fbd5bb3e0548bc22181110629bb92411eef9e67d5080b3727659d930777e44",
+    "figures/03-seeds.png": "4794ff1782007a37a2ae38e704d2f8d650ae7dfc9bebddc277f6623552c0e7a3",
+    "figures/03-seeds.svg": "bad98ac320f5d4e660ef65e8761b7a97cd1dc8900d1a6ea725fe0d21cca8b588"
+  },
+  "status": "PASSED",
+  "technical": [
+    {
+      "dpi": [
+        599.9988,
+        599.9988
+      ],
+      "pixels": [
+        6551,
+        2109
+      ],
+      "stem": "01-profit"
+    },
+    {
+      "dpi": [
+        599.9988,
+        599.9988
+      ],
+      "pixels": [
+        6551,
+        2162
+      ],
+      "stem": "02-learning"
+    },
+    {
+      "dpi": [
+        599.9988,
+        599.9988
+      ],
+      "pixels": [
+        6552,
+        2104
+      ],
+      "stem": "03-seeds"
+    }
+  ]
+}

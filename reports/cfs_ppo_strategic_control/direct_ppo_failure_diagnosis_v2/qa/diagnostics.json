@@ -1,0 +1,11 @@
+{
+  "all_counterfactual_replayed": true,
+  "calls": 4615,
+  "counterfactual_cases": 7,
+  "models": 9,
+  "no_training": true,
+  "output_bytes": 74369100,
+  "seconds": 346.4530000000377,
+  "states": 54,
+  "status": "PASSED"
+}

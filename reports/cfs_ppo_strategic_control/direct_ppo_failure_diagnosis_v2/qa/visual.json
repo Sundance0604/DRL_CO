@@ -1,0 +1,65 @@
+{
+  "SVG_XML_checked": true,
+  "actual_all_four_latest_PNG_viewed": true,
+  "checks": [
+    {
+      "dpi": [
+        599.9988,
+        599.9988
+      ],
+      "pixels": [
+        6551,
+        1930
+      ],
+      "stem": "01-m0"
+    },
+    {
+      "dpi": [
+        599.9988,
+        599.9988
+      ],
+      "pixels": [
+        6551,
+        1925
+      ],
+      "stem": "02-critic"
+    },
+    {
+      "dpi": [
+        599.9988,
+        599.9988
+      ],
+      "pixels": [
+        6552,
+        1930
+      ],
+      "stem": "03-switch"
+    },
+    {
+      "dpi": [
+        599.9988,
+        599.9988
+      ],
+      "pixels": [
+        6552,
+        1925
+      ],
+      "stem": "04-counterfactual"
+    }
+  ],
+  "hashes": {
+    "figures/01-m0.config.json": "2d2be6fab55b596ffba3d94c0dcdda3f46edbb92f86c0db9e9d6e39d8f49425d",
+    "figures/01-m0.png": "ed5f0978f12ea7d394e915790720ba36c9c8ad4cf34432b006b3385005ee76be",
+    "figures/01-m0.svg": "481e5ed08da00957665d3bcaea9353354293da8179fcc7b7f85972d9d9482d8f",
+    "figures/02-critic.config.json": "84b0c30ca40e7fc664949fe5f2754c13b8cc17ac4092a7d4167bc49ecada2a1c",
+    "figures/02-critic.png": "6fceebb9aa953196106d12b09033c958142856c59bdd78067e5a803ca9eba69b",
+    "figures/02-critic.svg": "b75a9746387115e25cad225ead7e5405079b22c1f23d29c5a42554ee11e82b1a",
+    "figures/03-switch.config.json": "402085b4f1fadcaf833f07bd6183f83a5c0e9a8eef2b08b1805d4424aa00fe11",
+    "figures/03-switch.png": "d886ffaad0fbe53b334d6893961168e63e08fe6c5b54bdd4e0ee15ebbea7ec3d",
+    "figures/03-switch.svg": "be3096b07b0d029fd140a75b1406fdfa391848da1904d6d7f0bd5505c07da250",
+    "figures/04-counterfactual.config.json": "a8e5b029ffa41fd9d82bee53f449e9788100969b86b4d49168e82fe8d7bb16d0",
+    "figures/04-counterfactual.png": "892d3e82ba952dd4afa90594b998a89670bf05c4f16e502fe9aaf6455a352f07",
+    "figures/04-counterfactual.svg": "71fe447c62165ed89f2765297d199e860abbcde7d7b8d28c16cdee112c20c90a"
+  },
+  "status": "PASSED"
+}

@@ -1,6 +1,6 @@
 # 数值实验报告索引
 
-本次同步包含实验源码、运行配置、测试、方法说明、Markdown 汇总报告与报告用 PNG／SVG 图。实际数据集、原始逐步轨迹、训练权重、MC／拟合价值表、结果 CSV／JSON、源码快照 ZIP 和运行目录保留本地。报告内列出的原运行目录及统计数据文件路径用于本地核验，GitHub 不提供这些文件。
+本次同步包含实验源码、运行配置、测试、方法说明、Markdown 汇总报告与报告用 PNG／SVG 图。实际数据集、原始逐步轨迹、训练权重、MC／拟合价值表、完整结果 JSON、源码快照 ZIP 和运行目录保留本地。较早批次的 CSV／JSON仍保留本地；2026-10-13新增Direct批次的精简分析CSV、冻结协议及小型QA记录随仓库发布。报告中的原始轨迹／权重路径仅供本地核验，不代表GitHub提供完整运行包。
 
 ## 已归档的 PPO 结果
 
@@ -12,6 +12,9 @@
 | 信号到整数动作诊断 | [控制通道报告](cfs_ppo_signal_action_diagnostic/signal_action_v1/signal_action_diagnostic_report.md) | 完成；机制诊断，不追加训练 |
 | 全时刻决策覆盖 | [覆盖报告](cfs_ppo_decision_coverage/full_period_v1/decision_coverage_report.md) | 完成；W80 两个开发场景的全24时刻 |
 | 冻结 PPO 已学方向 | [方向报告](cfs_ppo_learned_direction_v2/direction_v2/learned_direction_report.md) | v2完成；原v1 INVALID及修正经过在README披露 |
+| 无MC Direct PPO | [正式比较报告](cfs_ppo_strategic_control/direct_ppo_no_mc_v3/direct_ppo_vs_mc_report.md) | v3完成；9模型、2064完整episode、64相关测试；三个工况均劣于Pure MC |
+| Direct PPO失败机制诊断 | [诊断报告](cfs_ppo_strategic_control/direct_ppo_failure_diagnosis_v2/direct_ppo_failure_diagnosis_report.md)、[M0比较](cfs_ppo_strategic_control/direct_ppo_failure_diagnosis_v2/m0_comparison_report.md) | 恢复v2完成；72M0＋72zero，54状态810正式探针，7反事实案例，81相关测试 |
+| 带q的无MC方案B | [技术设计](cfs_ppo_strategic_control/direct_ppo_failure_diagnosis_v2/scheme_b_architecture_proposal.md) | 设计与可行性评估；没有正式训练 |
 
 报告同目录的 `figures/` 保存已生成的汇总图。原本地运行目录未搬迁或修改；本目录中的运行报告是额外归档副本。
 
@@ -44,3 +47,5 @@
 配置文件保留超参数、场景生成规则和随机种子，不包含采样订单或权重。CFS 数据来源路径需要在使用者自己的机器上配置；价值表、冻结场景和检查点需在本地准备。PPO快速示例引用的 `smoke_dataset.json`、`smoke_mc_table.json` 也留在本地，未作为数据文件上传。测试中通过代码构造的合成工程场景随测试源码保留。
 
 GitHub 的报告展示已执行实验的汇总结论，不能代替本地完整轨迹、统计数据和冻结身份审计。各实验是否完成、是否触发停止条件，以相应报告的明确状态为准。
+
+新增批次的文件分工、QA与本地复现前提见[同步说明](../docs/DIRECT_PPO_RESEARCH_SYNC.md)。本地完整COMPLETED目录不可重跑；GitHub只保存其精简发布部分，不应把缺少原始文件的clone当作已经通过全轨迹SHA验证的完整attempt。

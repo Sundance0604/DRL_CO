@@ -1,0 +1,161 @@
+{
+  "actual_solver_calls": 49959,
+  "additional_pure_MC_replays": 120,
+  "all_history_and_CFS_SHA_checked": true,
+  "all_inputs_and_source_SHA_checked": true,
+  "baseline_no_actor": true,
+  "code_sha256": "a373524e5abe3171e23938d9c7ee492f26e9ba44b5cb8fc85d99183a72e15542",
+  "history_files": 2173,
+  "model_counts": [
+    {
+      "condition": "california_corridor-n80-k3",
+      "seed": 30001,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 88,
+      "validation_episodes": 64
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "seed": 30002,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 86,
+      "validation_episodes": 64
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "seed": 30003,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 78,
+      "validation_episodes": 64
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "seed": 30001,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 88,
+      "validation_episodes": 64
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "seed": 30002,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 86,
+      "validation_episodes": 64
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "seed": 30003,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 78,
+      "validation_episodes": 64
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "seed": 30001,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 88,
+      "validation_episodes": 64
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "seed": 30002,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 86,
+      "validation_episodes": 64
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "seed": 30003,
+      "test_episodes": 24,
+      "training_episodes": 128,
+      "unique_training_scenarios": 78,
+      "validation_episodes": 64
+    }
+  ],
+  "model_dimensions": [
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "california_corridor-n80-k3",
+      "inference_parameters": 47380,
+      "seed": 30001
+    },
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "california_corridor-n80-k3",
+      "inference_parameters": 47380,
+      "seed": 30002
+    },
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "california_corridor-n80-k3",
+      "inference_parameters": 47380,
+      "seed": 30003
+    },
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "western_multicluster-n40-k8",
+      "inference_parameters": 47380,
+      "seed": 30001
+    },
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "western_multicluster-n40-k8",
+      "inference_parameters": 47380,
+      "seed": 30002
+    },
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "western_multicluster-n40-k8",
+      "inference_parameters": 47380,
+      "seed": 30003
+    },
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "western_multicluster-n80-k3",
+      "inference_parameters": 47380,
+      "seed": 30001
+    },
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "western_multicluster-n80-k3",
+      "inference_parameters": 47380,
+      "seed": 30002
+    },
+    {
+      "MC_features": 0,
+      "actor_dimensions": 10,
+      "body_input": 281,
+      "condition": "western_multicluster-n80-k3",
+      "inference_parameters": 47380,
+      "seed": 30003
+    }
+  ],
+  "numeric_files": 2523,
+  "numerical_seconds": 3159.005994,
+  "output_bytes_before_final_QA": 3488220146,
+  "status": "PASSED"
+}

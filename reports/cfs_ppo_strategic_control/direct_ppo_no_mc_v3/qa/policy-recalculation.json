@@ -1,0 +1,9 @@
+{
+  "actor_actions": 19008,
+  "code_sha256": "8dba735296275b1ba3437d3c38389159fe4a0687f87ade4c349508d30cd0d3f8",
+  "deterministic_episodes": 792,
+  "no_MC_guard": true,
+  "no_new_operating_experiment": true,
+  "status": "PASSED",
+  "validation_checkpoint_and_selected_test_actor_recomputed": true
+}

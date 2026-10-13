@@ -1,0 +1,33 @@
+{
+  "action_interface_sanity": true,
+  "conditions": [
+    {
+      "condition": "california_corridor-n80-k3",
+      "full_profit_USD": 50253.247003340206,
+      "no_mc_guard": true,
+      "nonzero_price_changed_probes": 8,
+      "probe_count": 20,
+      "probed_states": 1,
+      "zero_matches_M0": true
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "full_profit_USD": 29617.564639186225,
+      "no_mc_guard": true,
+      "nonzero_price_changed_probes": 5,
+      "probe_count": 20,
+      "probed_states": 1,
+      "zero_matches_M0": true
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "full_profit_USD": 25452.162538152683,
+      "no_mc_guard": true,
+      "nonzero_price_changed_probes": 5,
+      "probe_count": 20,
+      "probed_states": 1,
+      "zero_matches_M0": true
+    }
+  ],
+  "status": "PASSED"
+}

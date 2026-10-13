@@ -1,0 +1,8 @@
+{
+  "all_replayed": true,
+  "deterministic": true,
+  "episodes": 216,
+  "full_cooldown": true,
+  "no_mc_guard_passed": true,
+  "status": "PASSED"
+}

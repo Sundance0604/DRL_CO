@@ -1,0 +1,29 @@
+{
+  "calls": 3525,
+  "cases": [
+    {
+      "condition": "western_multicluster-n40-k8",
+      "current_booked_difference_USD": -807.5357316862717,
+      "current_realized_difference_USD": -10.0,
+      "difference_USD": -20.0,
+      "hidden_future_SHA": "d05fc98fb367d4bc04074bf9808112e2c83fe89cb60caed502de0c9c23892deb",
+      "period": 12,
+      "reference": "pilot/case001-reference.json",
+      "reference_profit_USD": 26824.95845030281,
+      "scenario_seed": 21008,
+      "seed": 30001,
+      "state_SHA": "34d91beff76092970c9f4afc2f7e22c56232a8dfeee6efd3d7b0ca89ff833fd7",
+      "variant": "stochastic",
+      "variant_profit_USD": 26804.95845030281,
+      "variant_record": "pilot/case001-variant.json"
+    }
+  ],
+  "conservative_remaining_seconds": 429.8031703981105,
+  "offline_seconds": 3.187687699974049,
+  "pilot_calls": 69,
+  "planned_remaining_call_bound": 1242,
+  "probe_seconds": 6.27197659999365,
+  "projected_remaining_seconds": 214.90158519905526,
+  "seconds": 231.53100000001723,
+  "status": "PASSED"
+}

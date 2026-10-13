@@ -1,0 +1,12 @@
+{
+  "M0": 72,
+  "actor_models": 9,
+  "code_SHA": "f31de333c14e47e538eabf8abb21d6423c9c43d0c2f4fff0e5253afa4f468585",
+  "counterfactual": 16,
+  "critic_steps": 27648,
+  "no_parent_write": true,
+  "parent_and_failed_attempt_all_SHA_checked": true,
+  "probes": 855,
+  "status": "PASSED",
+  "zero": 72
+}

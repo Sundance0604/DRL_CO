@@ -1,0 +1,105 @@
+{
+  "configuration": {
+    "action": {
+      "hubs": [
+        "04-429",
+        "06-348",
+        "06-41740",
+        "06-488",
+        "32-332"
+      ],
+      "scales": [
+        13886.827403914533,
+        13886.827403914533,
+        13886.827403914533,
+        13886.827403914533,
+        13886.827403914533
+      ],
+      "version": "single-direct-near-far-price/v1"
+    },
+    "feature_scales": {
+      "distance": 100.0,
+      "load": 40.0,
+      "money": 1000.0,
+      "time": 24.0
+    },
+    "parameters": {
+      "capacity": 40,
+      "cross_hub": true,
+      "empty_cost": 2.2,
+      "expiry_cost": 100,
+      "loaded_cost": 2,
+      "max_delay": 2,
+      "pickup_radius": 1001.6888930413795,
+      "pickup_rule": "network_radius",
+      "reposition": false,
+      "speed": 50,
+      "tie_break": 1.0,
+      "waiting_cost": 0
+    },
+    "ppo": {
+      "clip_ratio": 0.2,
+      "entropy_coefficient": 0.0,
+      "episode_timeout_seconds": 600.0,
+      "episodes_per_update": 2,
+      "epochs": 4,
+      "gae_lambda": 0.95,
+      "gamma": 1.0,
+      "hidden_size": 64,
+      "learning_rate": 0.0003,
+      "max_grad_norm": 0.5,
+      "minibatch_size": 64,
+      "reward_scale": 1000.0,
+      "target_kl": 0.03,
+      "training_seed": 29999,
+      "updates": 2,
+      "validation_every": 1,
+      "value_coefficient": 0.5
+    },
+    "solver": {
+      "mip_gap": 0,
+      "seed": 0,
+      "threads": 1,
+      "time_limit_seconds": 30
+    }
+  },
+  "conservative_formal_seconds": 8041.344000016339,
+  "episodes": 6,
+  "projected_formal_seconds": 4020.6720000081696,
+  "result": {
+    "actor_changed": true,
+    "best_validation_USD": 22949.501682238966,
+    "changed_parameter_tensors": [
+      "log_std",
+      "order_encoder.layers.0.weight",
+      "order_encoder.layers.0.bias",
+      "order_encoder.layers.2.weight",
+      "order_encoder.layers.2.bias",
+      "arc_encoder.layers.0.weight",
+      "arc_encoder.layers.0.bias",
+      "arc_encoder.layers.2.weight",
+      "arc_encoder.layers.2.bias",
+      "vehicle_encoder.layers.0.weight",
+      "vehicle_encoder.layers.0.bias",
+      "vehicle_encoder.layers.2.weight",
+      "vehicle_encoder.layers.2.bias",
+      "body.0.weight",
+      "body.0.bias",
+      "body.2.weight",
+      "body.2.bias",
+      "actor.weight",
+      "actor.bias",
+      "critic.weight",
+      "critic.bias"
+    ],
+    "critic_changed": true,
+    "episodes": 4,
+    "no_mc_guard_passed": true,
+    "selected_update": 1,
+    "status": "COMPLETED",
+    "updates": 2,
+    "wall_seconds": 11.688000000023749
+  },
+  "scale_or_hyperparameter_changes": 0,
+  "status": "PASSED"
+}

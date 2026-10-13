@@ -1,0 +1,9 @@
+{
+  "XML_SHA": "9feb6f3b39ac5c56a9a2372dd48bbdfb351f1672505219a9081b44fafce41cb1",
+  "errors": 0,
+  "failures": 0,
+  "scope": "diagnosis, Direct, PPO, classical, rolling related tests; not full platform",
+  "skipped": 0,
+  "status": "PASSED",
+  "tests": 81
+}

@@ -1,0 +1,679 @@
+{
+  "profit": [
+    {
+      "condition": "california_corridor-n80-k3",
+      "M0": 54742.59288104344,
+      "MC": 67515.24697596453,
+      "Direct": 59435.525515343696,
+      "MC_M0": {
+        "mean_USD": 12772.654094921083,
+        "CI95": [
+          8556.598881519662,
+          16908.25796197894
+        ],
+        "CI_adjusted": [
+          6610.561853485442,
+          18552.91296659864
+        ],
+        "seed_means": [
+          12772.654094921083
+        ],
+        "crossed_models": 1,
+        "scenarios": 24
+      },
+      "Direct_M0": {
+        "mean_USD": 4692.932634300258,
+        "CI95": [
+          403.89401154045777,
+          9503.410375457624
+        ],
+        "CI_adjusted": [
+          -1258.3551539882758,
+          11764.938615796907
+        ],
+        "seed_means": [
+          4266.715985897038,
+          2974.623395425948,
+          6837.458521577788
+        ],
+        "crossed_models": 3,
+        "scenarios": 24
+      },
+      "Direct_MC": {
+        "mean_USD": -8079.7214606208245,
+        "CI95": [
+          -12159.763388930047,
+          -4330.931453721233
+        ],
+        "CI_adjusted": [
+          -14230.358120790806,
+          -2694.3197027507513
+        ],
+        "seed_means": [
+          -8505.938109024044,
+          -9798.030699495137,
+          -5935.195573343296
+        ],
+        "crossed_models": 3,
+        "scenarios": 24
+      }
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "M0": 35073.26555965678,
+      "MC": 40615.997584564364,
+      "Direct": 34578.30643082716,
+      "MC_M0": {
+        "mean_USD": 5542.7320249075865,
+        "CI95": [
+          2656.566558343545,
+          8394.826003246484
+        ],
+        "CI_adjusted": [
+          1396.856987171714,
+          9566.36578210763
+        ],
+        "seed_means": [
+          5542.7320249075865
+        ],
+        "crossed_models": 1,
+        "scenarios": 24
+      },
+      "Direct_M0": {
+        "mean_USD": -494.95912882961784,
+        "CI95": [
+          -3487.410283738036,
+          2319.263312131297
+        ],
+        "CI_adjusted": [
+          -4954.0450451140905,
+          3399.2768787795676
+        ],
+        "seed_means": [
+          -2709.1151935715593,
+          1627.9435939696389,
+          -403.7057868869333
+        ],
+        "crossed_models": 3,
+        "scenarios": 24
+      },
+      "Direct_MC": {
+        "mean_USD": -6037.691153737204,
+        "CI95": [
+          -9489.433936944652,
+          -2376.5842174611557
+        ],
+        "CI_adjusted": [
+          -10816.229000897163,
+          -829.1815891368498
+        ],
+        "seed_means": [
+          -8251.847218479146,
+          -3914.788430937948,
+          -5946.437811794521
+        ],
+        "crossed_models": 3,
+        "scenarios": 24
+      }
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "M0": 35884.940902470975,
+      "MC": 45344.849697317775,
+      "Direct": 36330.45202888954,
+      "MC_M0": {
+        "mean_USD": 9459.9087948468,
+        "CI95": [
+          5944.822018185323,
+          13051.864242273166
+        ],
+        "CI_adjusted": [
+          4691.696702542691,
+          14456.268216746277
+        ],
+        "seed_means": [
+          9459.9087948468
+        ],
+        "crossed_models": 1,
+        "scenarios": 24
+      },
+      "Direct_M0": {
+        "mean_USD": 445.51112641856304,
+        "CI95": [
+          -2942.1402328013924,
+          4029.4740653069216
+        ],
+        "CI_adjusted": [
+          -4434.672901625648,
+          5705.643667368957
+        ],
+        "seed_means": [
+          -895.3818131506501,
+          819.8020847799172,
+          1412.113107626422
+        ],
+        "crossed_models": 3,
+        "scenarios": 24
+      },
+      "Direct_MC": {
+        "mean_USD": -9014.397668428237,
+        "CI95": [
+          -12420.19543244494,
+          -5646.055301260077
+        ],
+        "CI_adjusted": [
+          -13920.86930926601,
+          -4144.034623300387
+        ],
+        "seed_means": [
+          -10355.290607997451,
+          -8640.106710066882,
+          -8047.795687220379
+        ],
+        "crossed_models": 3,
+        "scenarios": 24
+      }
+    }
+  ],
+  "switch": [
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state000",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state001",
+      "zero": 0.0,
+      "stochastic": 0.75,
+      "perturbation": 0.4444444444444444
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state002",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state003",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state004",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state005",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state006",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state007",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state008",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state009",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state010",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state011",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state012",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state013",
+      "zero": 0.0,
+      "stochastic": 0.75,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state014",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state015",
+      "zero": 0.0,
+      "stochastic": 0.25,
+      "perturbation": 0.1111111111111111
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state016",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "state_id": "state017",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state018",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state019",
+      "zero": 1.0,
+      "stochastic": 1.0,
+      "perturbation": 0.6666666666666666
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state020",
+      "zero": 1.0,
+      "stochastic": 0.75,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state021",
+      "zero": 0.0,
+      "stochastic": 0.5,
+      "perturbation": 0.5555555555555556
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state022",
+      "zero": 1.0,
+      "stochastic": 0.75,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state023",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state024",
+      "zero": 1.0,
+      "stochastic": 0.5,
+      "perturbation": 0.5555555555555556
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state025",
+      "zero": 1.0,
+      "stochastic": 0.5,
+      "perturbation": 0.4444444444444444
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state026",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state027",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state028",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state029",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state030",
+      "zero": 1.0,
+      "stochastic": 1.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state031",
+      "zero": 1.0,
+      "stochastic": 0.5,
+      "perturbation": 0.5555555555555556
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state032",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state033",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state034",
+      "zero": 1.0,
+      "stochastic": 0.75,
+      "perturbation": 0.2222222222222222
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "state_id": "state035",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state036",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state037",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state038",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state039",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state040",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state041",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state042",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state043",
+      "zero": 0.0,
+      "stochastic": 0.75,
+      "perturbation": 0.3333333333333333
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state044",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state045",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state046",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state047",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state048",
+      "zero": 1.0,
+      "stochastic": 0.0,
+      "perturbation": 0.6666666666666666
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state049",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state050",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state051",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state052",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "state_id": "state053",
+      "zero": 0.0,
+      "stochastic": 0.0,
+      "perturbation": 0.0
+    }
+  ],
+  "cases": [
+    {
+      "condition": "california_corridor-n80-k3",
+      "current_booked_difference_USD": -4693.375093367698,
+      "current_realized_difference_USD": -21.286125616721733,
+      "difference_USD": -3932.411081788545,
+      "hidden_future_SHA": "dc87bbf0873c3b86bb4d3147cd0fbfb3c4342a9f0b5fce49d26ce46d59a8bad9",
+      "period": 4,
+      "reference": "counterfactual/case001-reference.json",
+      "reference_profit_USD": 54738.601919259774,
+      "scenario_seed": 21009,
+      "seed": 30001,
+      "state_SHA": "3f875caf9a189ab2fb9e68cf302cc24ff704ab2eb29b08b64053de3f97174452",
+      "variant": "stochastic",
+      "variant_profit_USD": 50806.19083747123,
+      "variant_record": "counterfactual/case001-variant.json",
+      "future_realized_difference_USD": -3911.124956171823
+    },
+    {
+      "condition": "california_corridor-n80-k3",
+      "current_booked_difference_USD": -6976.292459810729,
+      "current_realized_difference_USD": -25.0,
+      "difference_USD": -65.0,
+      "hidden_future_SHA": "dc87bbf0873c3b86bb4d3147cd0fbfb3c4342a9f0b5fce49d26ce46d59a8bad9",
+      "period": 4,
+      "reference": "counterfactual/case013-reference.json",
+      "reference_profit_USD": 56771.04420226337,
+      "scenario_seed": 21009,
+      "seed": 30003,
+      "state_SHA": "da4051aa1314ed47f4e14dc2fde4b00c7c2bce9247b166b06534cf1befba4c96",
+      "variant": "stochastic",
+      "variant_profit_USD": 56706.04420226337,
+      "variant_record": "counterfactual/case013-variant.json",
+      "future_realized_difference_USD": -40.0
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "current_booked_difference_USD": 555.3740312330538,
+      "current_realized_difference_USD": -86.7090052055089,
+      "difference_USD": 809.6175746752633,
+      "hidden_future_SHA": "5a75c707a685b36935918eb0ef273133fd95b4be0d5dfb8873d81484e9ab5df5",
+      "period": 4,
+      "reference": "counterfactual/case019-reference.json",
+      "reference_profit_USD": 31819.049428560727,
+      "scenario_seed": 21009,
+      "seed": 30001,
+      "state_SHA": "4a99b6f705229fa494a7f9456c83bf3e711f290099e2a3d488c92660de71681f",
+      "variant": "zero",
+      "variant_profit_USD": 32628.66700323599,
+      "variant_record": "counterfactual/case019-variant.json",
+      "future_realized_difference_USD": 896.3265798807722
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "current_booked_difference_USD": 3502.7655264742116,
+      "current_realized_difference_USD": 22.16285061552776,
+      "difference_USD": 1845.360881036795,
+      "hidden_future_SHA": "05f3cc473ce113affe3c3b44943c181d4add0bf48764271c36782641368f349b",
+      "period": 4,
+      "reference": "counterfactual/case024-reference.json",
+      "reference_profit_USD": 26978.92764719075,
+      "scenario_seed": 21011,
+      "seed": 30002,
+      "state_SHA": "8df1ce10862c77cdc40163310622e27d2b68905d7569912d06b8c22aee941a38",
+      "variant": "zero",
+      "variant_profit_USD": 28824.288528227546,
+      "variant_record": "counterfactual/case024-variant.json",
+      "future_realized_difference_USD": 1823.1980304212673
+    },
+    {
+      "condition": "western_multicluster-n40-k8",
+      "current_booked_difference_USD": 0.0,
+      "current_realized_difference_USD": 0.0,
+      "difference_USD": -500.74132236505466,
+      "hidden_future_SHA": "05f3cc473ce113affe3c3b44943c181d4add0bf48764271c36782641368f349b",
+      "period": 4,
+      "reference": "counterfactual/case030-reference.json",
+      "reference_profit_USD": 28458.940495778428,
+      "scenario_seed": 21011,
+      "seed": 30003,
+      "state_SHA": "6bd770e70cca6f1832bd7f6ddec47fd9c7434a28e380f99c7a5e4a04b74b96dd",
+      "variant": "zero",
+      "variant_profit_USD": 27958.199173413374,
+      "variant_record": "counterfactual/case030-variant.json",
+      "future_realized_difference_USD": -500.74132236505466
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "current_booked_difference_USD": -935.8080560774729,
+      "current_realized_difference_USD": 82.83714938447224,
+      "difference_USD": -12505.560219564635,
+      "hidden_future_SHA": "f204d6e6991e7b851369c79963d0bef559a57043549558746f97a8956577b1e9",
+      "period": 4,
+      "reference": "counterfactual/case043-reference.json",
+      "reference_profit_USD": 30727.04975870437,
+      "scenario_seed": 21010,
+      "seed": 30002,
+      "state_SHA": "78cbf18c3dba1285014c7dc1ec8276e100ea146f9954e26e360a0b0a2bcd3f1c",
+      "variant": "stochastic",
+      "variant_profit_USD": 18221.489539139733,
+      "variant_record": "counterfactual/case043-variant.json",
+      "future_realized_difference_USD": -12588.397368949107
+    },
+    {
+      "condition": "western_multicluster-n80-k3",
+      "current_booked_difference_USD": 1170.2340769243585,
+      "current_realized_difference_USD": -86.70900520550884,
+      "difference_USD": -705.4977230366712,
+      "hidden_future_SHA": "895c14b6ddf6f18129d338c8969952a71e4be0289ed65792210d856728b7837f",
+      "period": 4,
+      "reference": "counterfactual/case048-reference.json",
+      "reference_profit_USD": 48607.79047729275,
+      "scenario_seed": 21011,
+      "seed": 30003,
+      "state_SHA": "ff355d39242e52bcf41dc41d2409cedc53dbc46c526180be0470ef616bbe62d3",
+      "variant": "zero",
+      "variant_profit_USD": 47902.29275425608,
+      "variant_record": "counterfactual/case048-variant.json",
+      "future_realized_difference_USD": -618.7887178311623
+    }
+  ]
+}

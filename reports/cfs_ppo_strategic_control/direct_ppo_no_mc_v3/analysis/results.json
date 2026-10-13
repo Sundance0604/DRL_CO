@@ -1,0 +1,95 @@
+[
+  {
+    "condition": "california_corridor-n80-k3",
+    "MC_mean_USD": 67515.24697596453,
+    "Direct_mean_USD": 59435.525515343696,
+    "mean_USD": -8079.7214606208245,
+    "seed_mean_USD": [
+      -8505.938109024044,
+      -9798.030699495137,
+      -5935.195573343296
+    ],
+    "marginal95": [
+      -12196.946743508075,
+      -4352.061328263858
+    ],
+    "simultaneous98_333": [
+      -13330.077855182251,
+      -3523.507544620764
+    ],
+    "replications": 20000,
+    "bootstrap_seed": 42000,
+    "count_weighted_recalculation": true,
+    "MC_profit_CI95": [
+      64105.50101713458,
+      70531.1209715443
+    ],
+    "Direct_profit_CI95": [
+      55530.0153160641,
+      62961.875834618826
+    ],
+    "difference_percent": -11.967254542514242
+  },
+  {
+    "condition": "western_multicluster-n40-k8",
+    "MC_mean_USD": 40615.997584564364,
+    "Direct_mean_USD": 34578.30643082716,
+    "mean_USD": -6037.691153737204,
+    "seed_mean_USD": [
+      -8251.847218479146,
+      -3914.788430937948,
+      -5946.437811794521
+    ],
+    "marginal95": [
+      -9510.950635798185,
+      -2358.0146367364814
+    ],
+    "simultaneous98_333": [
+      -10288.081367282311,
+      -1572.3139753663984
+    ],
+    "replications": 20000,
+    "bootstrap_seed": 42000,
+    "count_weighted_recalculation": true,
+    "MC_profit_CI95": [
+      38136.17430515873,
+      43156.521153845664
+    ],
+    "Direct_profit_CI95": [
+      31867.656944996965,
+      37099.51918219632
+    ],
+    "difference_percent": -14.865303114041346
+  },
+  {
+    "condition": "western_multicluster-n80-k3",
+    "MC_mean_USD": 45344.849697317775,
+    "Direct_mean_USD": 36330.45202888954,
+    "mean_USD": -9014.397668428237,
+    "seed_mean_USD": [
+      -10355.290607997451,
+      -8640.106710066882,
+      -8047.795687220379
+    ],
+    "marginal95": [
+      -12484.921617607151,
+      -5656.345563194501
+    ],
+    "simultaneous98_333": [
+      -13300.848383589571,
+      -4881.530442568023
+    ],
+    "replications": 20000,
+    "bootstrap_seed": 42000,
+    "count_weighted_recalculation": true,
+    "MC_profit_CI95": [
+      42819.66176993195,
+      47832.71591799029
+    ],
+    "Direct_profit_CI95": [
+      33486.5927209514,
+      38712.111410196194
+    ],
+    "difference_percent": -19.87965056362609
+  }
+]

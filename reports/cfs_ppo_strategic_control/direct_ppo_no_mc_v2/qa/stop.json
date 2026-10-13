@@ -1,0 +1,6 @@
+{
+  "error": "TimeoutError",
+  "message": "smoke conservative projection exceeds registered numerical budget",
+  "stage": "smoke",
+  "status": "BUDGET_LIMITED"
+}

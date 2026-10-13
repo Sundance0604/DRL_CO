@@ -4,6 +4,8 @@
 
 2026-10-10 数值研究同步：[数值实验与报告索引](reports/README.md) 汇集多轮 CFS 与 PPO 的源码、配置、可读报告和汇总图。数据集、原始轨迹、权重、价值表及完整运行目录留在本地；复现所需本地输入见索引说明。
 
+2026-10-13：[Direct PPO 与失败机制诊断同步说明](docs/DIRECT_PPO_RESEARCH_SYNC.md)。新增完全不依赖MC的Direct模型、同场景M0诊断、Actor/Critic与动作响应分析；同步源码、相关测试、中文报告、精简配对CSV、七组PNG/SVG与关键QA记录。未改平台默认模型，方案B仅设计未训练。此处精简CSV/QA是上述本地数据排除规则的明确例外，不包含订单数据、权重或完整轨迹。
+
 完整逐字段使用说明：[Single 实验平台详细手册](docs/SINGLE_PLATFORM_USER_GUIDE.md)（2026-10-04）。覆盖全部 11 个页面、条件出现的框架参数、批实验 JSON、逐 t trace、统计口径和 Python 导出；首次使用建议按手册第 15 节操作。
 
 2026-10-04 CFS 限范围实验：新增 single 的物理网络 `pickup_radius`（英里，默认0仅own hub）、双账本与无再次优化的日终完整执行。正式比较显式选择 `single-realized-v1 / cooldown_realized`；旧 booked 模式仅供复现。CFS货值不当运费，几何网络不当真实公路；详见 [实验复现说明](experiments/cfs_rho_endofday/README.md)、[修改前审计](reports/cfs_rho_endofday/implementation_audit.md) 与 [仿真报告](reports/cfs_rho_endofday/simulation_report.md)。现有逐字段手册描述修改前默认核算，本次新增口径以上述实验说明为准。

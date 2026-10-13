@@ -1,0 +1,11 @@
+{
+  "M0_episodes": 72,
+  "all_replayed": true,
+  "all_zero_equivalent": true,
+  "calls": 3456,
+  "read_only_reused": true,
+  "recovery_source": "D:\\mycodelife\\workshop\\AI\\DRL_CO_new_model\\DRL_CO_new_model_20261002\\_review_repo\\reports\\cfs_ppo_strategic_control\\direct_ppo_failure_diagnosis_v1",
+  "seconds": 222.0470000000205,
+  "status": "PASSED",
+  "zero_episodes": 72
+}
