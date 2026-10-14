@@ -1,0 +1,8 @@
+autogluon_pilot_*/data/
+autogluon_pilot_*/models/
+autogluon_pilot_*/raw/
+autogluon_pilot_*/training/
+autogluon_pilot_*/qa/
+**/*.csv
+**/*.json
+**/*.pkl

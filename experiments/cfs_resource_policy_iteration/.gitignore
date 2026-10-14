@@ -1,0 +1,7 @@
+raw/
+targets/iter*/raw/
+qa/pdf_render/
+qa/pytest*.xml
+# Generated paper figures stay in local experiment deliverables, not the
+# platform's Git-enumerated source snapshot (100 MiB reproduction guard).
+figures/

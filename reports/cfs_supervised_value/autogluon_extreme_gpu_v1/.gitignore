@@ -1,0 +1,9 @@
+environment/
+qa/
+models/
+data/
+raw/
+*.csv
+*.json
+*.txt
+*.log

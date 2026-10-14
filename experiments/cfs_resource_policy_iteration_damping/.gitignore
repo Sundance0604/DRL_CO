@@ -1,0 +1,8 @@
+raw/
+targets/
+figures/
+qa/
+processed/
+manifests/historical_readonly.json
+manifests/raw_world_sha256.json
+__pycache__/

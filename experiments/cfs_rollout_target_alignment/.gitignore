@@ -1,0 +1,6 @@
+# Raw scientific observations use the dedicated fifth-study hash manifests.
+# Never copy changing, potentially gigabyte-sized records into platform source snapshots.
+raw/
+targets/raw/
+qa/pdf_render/
+qa/pytest*.xml

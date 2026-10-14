@@ -1,0 +1,4 @@
+raw/
+targets/raw/
+processed/execution_events/
+__pycache__/

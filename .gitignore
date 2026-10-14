@@ -55,3 +55,21 @@ results/cfs_classical_value/processed/execution_events/
 /experiments/cfs_*/**/*.npy
 /experiments/cfs_*/**/*.zip
 /reports/**/*.json
+
+# Additional local training outputs; publish source, reports and research figures only.
+*.ckpt
+*.safetensors
+*.pkl
+*.joblib
+/reports/**/*.csv
+/reports/**/*.jsonl
+/reports/**/data/
+/reports/**/raw/
+/reports/**/models/
+/reports/**/model/
+/reports/**/training/
+/reports/**/smoke/
+/reports/**/environment/
+/reports/**/qa/
+/experiments/cfs_*/qa/
+/experiments/cfs_*/preflight-tests.xml
